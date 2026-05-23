@@ -847,12 +847,14 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   const captureFrame=async()=>{
     const v=videoRef.current,c=canvasRef.current;
     if(!c||!v||!cameraReady)return null;
-    const W=v.videoWidth||1280,H=v.videoHeight||960;
-    c.width=W;c.height=H;
+    const vW=v.videoWidth||1280,vH=v.videoHeight||960;
+    const size=Math.min(vW,vH);
+    const sx=(vW-size)/2,sy=(vH-size)/2;
+    c.width=size;c.height=size;
     const ctx=c.getContext('2d');
-    ctx.fillStyle='#111';ctx.fillRect(0,0,W,H);
-    ctx.save();ctx.translate(W,0);ctx.scale(-1,1);ctx.drawImage(v,0,0,W,H);ctx.restore();
-    if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,W,H);}catch{}}
+    ctx.fillStyle='#111';ctx.fillRect(0,0,size,size);
+    ctx.save();ctx.translate(size,0);ctx.scale(-1,1);ctx.drawImage(v,sx,sy,size,size,0,0,size,size);ctx.restore();
+    if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,size,size);}catch{}}
     try{return c.toDataURL('image/jpeg',0.88);}catch{return null;}
   };
   useEffect(()=>{if(step==='shoot')startCamera();else stopCamera();},[step]);
@@ -860,7 +862,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     if(shootLock)return;setShootLock(true);let n=3;setCountdown(n);beep(440,0.08,0.4);
     timerRef.current=setInterval(()=>{n--;if(n>0){setCountdown(n);beep(440,0.08,0.4);}
     else{clearInterval(timerRef.current);setCountdown(0);shootBeep();setFlash(true);setTimeout(()=>setFlash(false),300);
-      setTimeout(async()=>{const photo=await captureFrame()||selBg?.emoji||"📸";setCountdown(null);setPhotos(p=>{const next=[...p,photo];if(next.length>=session.layout)setTimeout(()=>setStep("preview"),400);return next;});setShootLock(false);},350);}},1000);
+      setTimeout(async()=>{const photo=await captureFrame()||"📸";setCountdown(null);setPhotos(p=>{const next=[...p,photo];if(next.length>=session.layout)setTimeout(()=>setStep("preview"),400);return next;});setShootLock(false);},350);}},1000);
   };
   useEffect(()=>()=>{if(timerRef.current)clearInterval(timerRef.current);stopCamera();},[]);
 
@@ -952,7 +954,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
               <div key={i} className={`thumb ${i<photos.length?"done":""}`} style={{overflow:"hidden"}}>
                 {i<photos.length
                   ? typeof photos[i]==="string"&&photos[i].startsWith("data:")
-                    ? <><img src={photos[i]} style={{width:"100%",height:"100%",objectFit:"cover",transform:"scaleX(-1)"}}/><div className="chk">✓</div></>
+                    ? <><img src={photos[i]} style={{width:"100%",height:"100%",objectFit:"cover"}}/><div className="chk">✓</div></>
                     : <><span style={{fontSize:24}}>{photos[i]}</span><div className="chk">✓</div></>
                   : <span style={{fontSize:20,color:"var(--muted)"}}>{i+1}</span>}
               </div>
