@@ -852,15 +852,42 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   };
   const loadImg=src=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>res(img);img.onerror=rej;img.src=src;});
   const captureFrame=async()=>{
-    const v=videoRef.current,c=canvasRef.current;
-    if(!c||!v||!cameraReady)return null;
+    const c=canvasRef.current;
+    if(!c)return null;
+    // Try ImageCapture API first (most reliable, bypasses video display state)
+    if(streamRef.current&&window.ImageCapture){
+      try{
+        const track=streamRef.current.getVideoTracks()[0];
+        if(track&&track.readyState==='live'){
+          const ic=new ImageCapture(track);
+          const bitmap=await ic.grabFrame();
+          const vW=bitmap.width,vH=bitmap.height;
+          const size=Math.min(vW,vH);
+          const sx=(vW-size)/2,sy=(vH-size)/2;
+          c.width=size;c.height=size;
+          const ctx=c.getContext('2d');
+          ctx.fillStyle='#111';ctx.fillRect(0,0,size,size);
+          ctx.save();ctx.translate(size,0);ctx.scale(-1,1);
+          ctx.drawImage(bitmap,sx,sy,size,size,0,0,size,size);
+          ctx.restore();bitmap.close();
+          return c.toDataURL('image/jpeg',0.92);
+        }
+      }catch{}
+    }
+    // Fallback: draw from video element
+    const v=videoRef.current;
+    if(!v)return null;
     const vW=v.videoWidth||1280,vH=v.videoHeight||960;
     const size=Math.min(vW,vH);
     const sx=(vW-size)/2,sy=(vH-size)/2;
     c.width=size;c.height=size;
     const ctx=c.getContext('2d');
     ctx.fillStyle='#111';ctx.fillRect(0,0,size,size);
-    ctx.save();ctx.translate(size,0);ctx.scale(-1,1);ctx.drawImage(v,sx,sy,size,size,0,0,size,size);ctx.restore();
+    try{
+      ctx.save();ctx.translate(size,0);ctx.scale(-1,1);
+      ctx.drawImage(v,sx,sy,size,size,0,0,size,size);
+      ctx.restore();
+    }catch{try{ctx.restore();}catch{}}
     try{return c.toDataURL('image/jpeg',0.92);}catch{return null;}
   };
   useEffect(()=>{if(step==='shoot'&&shootPhase==='camera')startCamera();else stopCamera();},[step,shootPhase]);
@@ -890,10 +917,9 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
       <div className="print-paper" style={{position:"relative",overflow:"hidden",display:"inline-block"}}>
         <div style={{position:"relative",display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"transparent",width:baseW*scale}}>
           {photos.map((p,i)=>(
-            <div key={i} className="print-photo" style={{aspectRatio:"1/1",position:"relative",overflow:"hidden"}}>
-              {isDataUrl(p)&&<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:1}} alt=""/>}
+            <div key={i} className="print-photo" style={{aspectRatio:"1/1",position:"relative",overflow:"hidden",background:isDataUrl(p)?`url(${p}) center/cover`:"#111"}}>
               {!isDataUrl(p)&&<span style={{position:"relative",zIndex:1,fontSize:mini?12:28}}>{p}</span>}
-              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",zIndex:2,pointerEvents:"none"}} alt=""/>}
+              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",pointerEvents:"none"}} alt=""/>}
             </div>
           ))}
         </div>
@@ -988,17 +1014,12 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
           <div style={{textAlign:"center",maxWidth:520,width:"100%"}}>
             <div className="step-title">¡ASÍ QUEDÓ!</div>
             <div className="step-sub">Foto {photos.length} de {session.layout} · {selFrame?.emoji} {selFrame?.name}</div>
-            <div style={{width:"min(400px,88vw)",height:"min(400px,88vw)",margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)",position:"relative",background:"#111"}}>
-              {photos[photos.length-1]?.startsWith("data:")&&(
-                <img src={photos[photos.length-1]} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt="foto"/>
-              )}
-              {selFrame?.image_url&&(
-                <img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",pointerEvents:"none"}} alt="marco"/>
-              )}
-              {!photos[photos.length-1]?.startsWith("data:")&&(
-                <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--muted)",fontSize:13}}>⏳ Procesando...</div>
-              )}
-            </div>
+            {(()=>{const lastPhoto=photos[photos.length-1];const hasPhoto=lastPhoto?.startsWith("data:");return(
+              <div style={{width:"min(400px,88vw)",height:"min(400px,88vw)",margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)",position:"relative",background:hasPhoto?`url(${lastPhoto}) center/cover`:"#111",backgroundSize:"cover",backgroundPosition:"center"}}>
+                {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill"}} alt=""/>}
+                {!hasPhoto&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"var(--muted)"}}><div style={{fontSize:40}}>📷</div><div style={{fontSize:12}}>Sin captura — intenta de nuevo</div></div>}
+              </div>
+            );})()}
             <div style={{marginTop:18,display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
               <button className="btn btn-ghost" onClick={()=>{setPhotos(p=>p.slice(0,-1));setShootPhase("camera");}}>↺ Repetir esta foto</button>
               {photos.length<session.layout
