@@ -861,8 +861,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     const ctx=c.getContext('2d');
     ctx.fillStyle='#111';ctx.fillRect(0,0,size,size);
     ctx.save();ctx.translate(size,0);ctx.scale(-1,1);ctx.drawImage(v,sx,sy,size,size,0,0,size,size);ctx.restore();
-    if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,size,size);}catch{}}
-    try{return c.toDataURL('image/jpeg',0.88);}catch{return null;}
+    try{return c.toDataURL('image/jpeg',0.92);}catch{return null;}
   };
   useEffect(()=>{if(step==='shoot'&&shootPhase==='camera')startCamera();else stopCamera();},[step,shootPhase]);
   const startShoot=()=>{
@@ -892,12 +891,9 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
         <div style={{position:"relative",display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"transparent",width:baseW*scale}}>
           {photos.map((p,i)=>(
             <div key={i} className="print-photo" style={{aspectRatio:"1/1",position:"relative",overflow:"hidden"}}>
-              {isDataUrl(p)
-                ?<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
-                :<>
-                  <span style={{position:"relative",zIndex:1,fontSize:mini?12:28}}>{p}</span>
-                  {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",zIndex:2}} alt=""/>}
-                </>}
+              {isDataUrl(p)&&<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:1}} alt=""/>}
+              {!isDataUrl(p)&&<span style={{position:"relative",zIndex:1,fontSize:mini?12:28}}>{p}</span>}
+              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",zIndex:2,pointerEvents:"none"}} alt=""/>}
             </div>
           ))}
         </div>
@@ -992,11 +988,17 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
           <div style={{textAlign:"center",maxWidth:520,width:"100%"}}>
             <div className="step-title">¡ASÍ QUEDÓ!</div>
             <div className="step-sub">Foto {photos.length} de {session.layout} · {selFrame?.emoji} {selFrame?.name}</div>
-            {photos[photos.length-1]?.startsWith("data:")&&(
-              <div style={{width:"min(380px,88vw)",height:"min(380px,88vw)",margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)"}}>
-                <img src={photos[photos.length-1]} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="foto"/>
-              </div>
-            )}
+            <div style={{width:"min(400px,88vw)",height:"min(400px,88vw)",margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)",position:"relative",background:"#111"}}>
+              {photos[photos.length-1]?.startsWith("data:")&&(
+                <img src={photos[photos.length-1]} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt="foto"/>
+              )}
+              {selFrame?.image_url&&(
+                <img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",pointerEvents:"none"}} alt="marco"/>
+              )}
+              {!photos[photos.length-1]?.startsWith("data:")&&(
+                <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--muted)",fontSize:13}}>⏳ Procesando...</div>
+              )}
+            </div>
             <div style={{marginTop:18,display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
               <button className="btn btn-ghost" onClick={()=>{setPhotos(p=>p.slice(0,-1));setShootPhase("camera");}}>↺ Repetir esta foto</button>
               {photos.length<session.layout
@@ -1041,7 +1043,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
               <div className="qr-card" style={{minWidth:240}}>
                 <div style={{fontSize:13,letterSpacing:2,color:"var(--muted)",textTransform:"uppercase",marginBottom:8}}>🎞️ GIF Animado</div>
                 <div className="result-gif" style={{margin:"0 auto 12px"}}>
-                  {photos.slice(0,3).map((p,i)=><div key={i} className="gif-frame" style={{animationDelay:`${i*0.8}s`}}><span style={{fontSize:60}}>{p}</span></div>)}
+                  {photos.slice(0,3).map((p,i)=><div key={i} className="gif-frame" style={{animationDelay:`${i*0.8}s`}}>{p.startsWith("data:")?<img src={p} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:60}}>{p}</span>}</div>)}
                   <div className="gif-overlay">ANIME BOOTH · {selFrame?.name?.toUpperCase()}</div>
                 </div>
                 <div style={{fontSize:12,color:"var(--muted)",marginBottom:12}}>GIF listo para compartir 🎊</div>
