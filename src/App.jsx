@@ -1045,7 +1045,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             <div key={i} className="print-photo" style={{aspectRatio:"1/1",position:"relative",overflow:"hidden",background:"#111"}}>
               {isDataUrl(p)&&<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>}
               {!isDataUrl(p)&&<span style={{position:"relative",zIndex:1,fontSize:mini?12:28}}>{p}</span>}
-              {selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",pointerEvents:"none",mixBlendMode:"multiply"}} alt=""/>}
+              {selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",pointerEvents:"none",...(!processedFrameUrl&&{mixBlendMode:"multiply"})}} alt=""/>}
             </div>
           ))}
         </div>
@@ -1143,7 +1143,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             {(()=>{const lastPhoto=photos[photos.length-1];const hasPhoto=lastPhoto?.startsWith("data:");return(
               <div style={{width:"min(400px,88vw)",height:"min(400px,88vw)",margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)",position:"relative",background:"#111"}}>
                 {hasPhoto&&<img src={lastPhoto} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>}
-                {selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",mixBlendMode:"multiply"}} alt=""/>}
+                {selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",...(!processedFrameUrl&&{mixBlendMode:"multiply"})}} alt=""/>}
                 {!hasPhoto&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"var(--muted)"}}><div style={{fontSize:40}}>📷</div><div style={{fontSize:12}}>Sin captura — intenta de nuevo</div></div>}
               </div>
             );})()}
