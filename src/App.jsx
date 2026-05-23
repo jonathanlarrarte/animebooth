@@ -79,6 +79,8 @@ const removeFrameBg = async (url) => {
   }
 };
 
+const canvasToBlob = (c, type, q) => new Promise(res => c.toBlob(res, type, q));
+
 // ── STYLES ───────────────────────────────────────────────────────────────────
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap');
@@ -850,9 +852,11 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   const [cameraReady,setCameraReady]=useState(false),[cameraError,setCameraError]=useState('');
   const [shootPhase,setShootPhase]=useState('confirm');
   const [processedFrameUrl,setProcessedFrameUrl]=useState(null);
+  const [collageUrl,setCollageUrl]=useState(null);
+  const [printing,setPrinting]=useState(false);
   const iRefs=[useRef(),useRef(),useRef(),useRef()], timerRef=useRef(null);
   const videoRef=useRef(null), canvasRef=useRef(null), streamRef=useRef(null);
-  const downloadUrl=session?`${DOWNLOAD_BASE}/${session.code}`:"";
+  const downloadUrl=collageUrl||(session?`${DOWNLOAD_BASE}/${session.code}`:"");
   const waText=session?encodeURIComponent(`🎌 ¡Mira mi sesión en AnimeBooth!\n🎨 Marco: ${selFrame?.name}\n⬇️ Descarga: ${downloadUrl}`):"";
   const activeCollages=collages.filter(c=>c.active);
 
@@ -940,12 +944,92 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   };
   useEffect(()=>()=>{if(timerRef.current)clearInterval(timerRef.current);stopCamera();},[]);
 
-  const doPrint=async()=>{
-    printBeep();
-    const{data}=await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),frame_id:selFrame?.id||null}).eq("id",session.id).select().single();
-    if(data)setSessions(s=>s.map(x=>x.id===session.id?data:x));setStep("success");
+  // Build full collage on a canvas (photos + frame overlay) for upload & print
+  const buildCollageCanvas=async()=>{
+    const cols=sessionCollage.cols,rows=sessionCollage.rows;
+    const gap=sessionCollage.gap,border=sessionCollage.border;
+    const CELL=600;
+    const W=border*2+cols*CELL+(cols-1)*gap;
+    const H=border*2+rows*CELL+(rows-1)*gap+28;
+    const c=document.createElement('canvas');c.width=W;c.height=H;
+    const ctx=c.getContext('2d');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+    // Load processed frame (data URL, no CORS taint)
+    let fImg=null;
+    if(processedFrameUrl){
+      fImg=new Image();
+      await new Promise(res=>{fImg.onload=res;fImg.src=processedFrameUrl;});
+    } else if(selFrame?.image_url){
+      try{
+        fImg=new Image();fImg.crossOrigin='anonymous';
+        await new Promise((res,rej)=>{fImg.onload=res;fImg.onerror=rej;fImg.src=selFrame.image_url;});
+      }catch{fImg=null;}
+    }
+    for(let i=0;i<photos.length;i++){
+      const col=i%cols,row=Math.floor(i/cols);
+      const x=border+col*(CELL+gap),y=border+row*(CELL+gap);
+      if(photos[i]?.startsWith('data:')){
+        const img=new Image();
+        await new Promise(res=>{img.onload=res;img.src=photos[i];});
+        ctx.drawImage(img,x,y,CELL,CELL);
+      }
+      if(fImg){try{ctx.drawImage(fImg,x,y,CELL,CELL);}catch{}}
+    }
+    ctx.fillStyle='#aaa';ctx.font='18px sans-serif';ctx.textAlign='center';
+    ctx.fillText(`AnimeBooth · ${selFrame?.name||''}`,W/2,H-7);
+    return c;
   };
-  const restart=()=>{setStep("code");setDigits(["","","",""]);setCodeErr("");setSession(null);setSelFrame(null);setPhotos([]);setCountdown(null);setShootLock(false);setShootPhase('confirm');};
+
+  const doPrint=async()=>{
+    if(printing)return;
+    printBeep();setPrinting(true);
+    // 1. Build collage canvas
+    let dataUrl=null;
+    try{
+      const canvas=await buildCollageCanvas();
+      dataUrl=canvas.toDataURL('image/jpeg',0.92);
+      // 2. Print via hidden iframe (Liene 1100 must be default printer or selected in dialog)
+      const ifr=document.createElement('iframe');
+      ifr.style.cssText='position:fixed;top:-9999px;left:-9999px;width:4in;height:6in;border:none;';
+      document.body.appendChild(ifr);
+      const doc=ifr.contentDocument;
+      doc.open();
+      doc.write(`<!DOCTYPE html><html><head><style>
+        @page{size:4in 6in;margin:0}
+        body{margin:0;padding:0;display:flex;align-items:center;justify-content:center;width:4in;height:6in;background:#fff}
+        img{max-width:4in;max-height:6in;object-fit:contain}
+      </style></head><body><img src="${dataUrl}"/></body></html>`);
+      doc.close();
+      setTimeout(()=>{
+        ifr.contentWindow.print();
+        setTimeout(()=>{try{document.body.removeChild(ifr);}catch{}},3000);
+      },400);
+      // 3. Upload collage to Supabase Storage
+      try{
+        const blob=await canvasToBlob(canvas,'image/jpeg',0.92);
+        const path=`collage-${session.code}.jpg`;
+        const{error}=await supabase.storage.from('photos').upload(path,blob,{contentType:'image/jpeg',upsert:true});
+        if(!error){
+          const{data:pub}=supabase.storage.from('photos').getPublicUrl(path);
+          setCollageUrl(pub.publicUrl);
+          await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),frame_id:selFrame?.id||null,collage_url:pub.publicUrl}).eq("id",session.id);
+          setSessions(s=>s.map(x=>x.id===session.id?{...x,used:true,collage_url:pub.publicUrl}:x));
+        }
+      }catch{
+        // Upload failed — still mark session used
+        await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),frame_id:selFrame?.id||null}).eq("id",session.id);
+        setSessions(s=>s.map(x=>x.id===session.id?{...x,used:true}:x));
+      }
+    }catch(e){
+      console.error('doPrint error',e);
+    }
+    setPrinting(false);setStep("success");
+  };
+  const restart=()=>{
+    setStep("code");setDigits(["","","",""]);setCodeErr("");setSession(null);setSelFrame(null);
+    setPhotos([]);setCountdown(null);setShootLock(false);setShootPhase('confirm');
+    setProcessedFrameUrl(null);setCollageUrl(null);setPrinting(false);
+  };
 
   const STEPS=["code","frame","shoot","preview","success"],STEP_LABELS=["Código","Marco","Fotos","Preview","Listo"],si=STEPS.indexOf(step);
 
@@ -1091,7 +1175,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             </div>
             <div style={{display:"flex",gap:14,justifyContent:"center"}}>
               <button className="btn btn-ghost" style={{fontSize:14,padding:"11px 28px"}} onClick={()=>{setPhotos([]);setShootPhase('confirm');setStep("shoot");}}>↺ Repetir fotos</button>
-              <button className="shoot-btn" style={{padding:"15px 48px",fontSize:22}} onClick={doPrint}>🖨️ IMPRIMIR</button>
+              <button className="shoot-btn" style={{padding:"15px 48px",fontSize:22,opacity:printing?.5:1}} disabled={printing} onClick={doPrint}>{printing?"⏳ IMPRIMIENDO...":"🖨️ IMPRIMIR"}</button>
             </div>
           </div>
         )}
@@ -1102,9 +1186,21 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             <div style={{display:"flex",gap:20,justifyContent:"center",alignItems:"flex-start",flexWrap:"wrap"}}>
               <div className="qr-card" style={{minWidth:220}}>
                 <div style={{fontSize:13,letterSpacing:2,color:"var(--muted)",textTransform:"uppercase",marginBottom:4}}>📲 Descarga Digital</div>
-                <div className="qr-wrap"><QRCode value={downloadUrl} size={140}/></div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:13,color:"var(--muted)",letterSpacing:1}}>{downloadUrl.replace("https://","")}</div>
-                <div style={{marginTop:8,fontSize:11,color:"rgba(232,160,32,.6)"}}>⏳ Link válido 7 días</div>
+                {collageUrl?(
+                  <>
+                    <div className="qr-wrap"><QRCode value={collageUrl} size={140}/></div>
+                    <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>Escanea para descargar tu foto</div>
+                    <a href={collageUrl} download={`animebooth-${session?.code}.jpg`} target="_blank" rel="noreferrer"
+                      style={{display:"inline-block",padding:"8px 18px",background:"var(--accent)",borderRadius:20,color:"#000",fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:2,textDecoration:"none"}}>
+                      ⬇ DESCARGAR
+                    </a>
+                  </>
+                ):(
+                  <div style={{padding:"20px 10px",color:"var(--muted)",fontSize:13}}>
+                    <div style={{fontSize:32,marginBottom:8}}>⏳</div>
+                    Preparando enlace...
+                  </div>
+                )}
               </div>
               <div className="qr-card" style={{minWidth:240}}>
                 <div style={{fontSize:13,letterSpacing:2,color:"var(--muted)",textTransform:"uppercase",marginBottom:8}}>🎞️ GIF Animado</div>
