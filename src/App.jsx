@@ -151,14 +151,14 @@ const css = `
   .status-dot{width:10px;height:10px;border-radius:50%;background:#44aa44;box-shadow:0 0 8px #44aa44;animation:blink 2s ease-in-out infinite}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
   /* Kiosk */
-  .kiosk{position:fixed;inset:0;background:#000;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;overflow:hidden}
-  .kiosk-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,#0d1535 0%,#07080f 60%)}
+  .kiosk{position:fixed;inset:0;background:#000;z-index:200;display:flex;flex-direction:column;align-items:center;font-family:'Rajdhani',sans-serif;overflow-y:auto}
+  .kiosk-bg{position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,#0d1535 0%,#07080f 60%);pointer-events:none}
   .k-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden}
   .k-particle{position:absolute;border-radius:50%;animation:rise linear infinite}
   @keyframes rise{0%{transform:translateY(110vh);opacity:0}10%{opacity:.8}90%{opacity:.8}100%{transform:translateY(-10vh);opacity:0}}
-  .kiosk-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%;max-width:900px;padding:24px}
-  .kiosk-logo{font-family:'Bebas Neue',sans-serif;font-size:50px;letter-spacing:8px;background:linear-gradient(135deg,#e8a020,#f0d060);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
-  .kiosk-tagline{font-size:13px;letter-spacing:5px;color:var(--muted);text-transform:uppercase;margin-bottom:36px}
+  .kiosk-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%;max-width:900px;padding:18px 24px 28px;margin:auto}
+  .kiosk-logo{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:8px;background:linear-gradient(135deg,#e8a020,#f0d060);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.1;white-space:nowrap}
+  .kiosk-tagline{font-size:12px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:20px}
   .code-card{background:rgba(14,16,32,.95);border:1px solid var(--border);border-radius:16px;padding:36px;text-align:center;width:420px;backdrop-filter:blur(20px);box-shadow:0 24px 64px rgba(0,0,0,.6)}
   .code-label{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:18px}
   .code-inputs{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
@@ -169,11 +169,11 @@ const css = `
   .enter-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#c47010);border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;color:#000;cursor:pointer;transition:all .2s}
   .enter-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,160,32,.35)}
   .enter-btn:disabled{opacity:.35;cursor:not-allowed}
-  .steps-row{display:flex;gap:0;margin-bottom:28px;background:rgba(14,16,32,.8);border:1px solid var(--border);border-radius:50px;padding:4px;overflow:hidden}
+  .steps-row{display:flex;gap:0;margin-bottom:16px;background:rgba(14,16,32,.8);border:1px solid var(--border);border-radius:50px;padding:4px;overflow:hidden}
   .step-pill{padding:6px 16px;border-radius:50px;font-size:12px;letter-spacing:1px;color:var(--muted);transition:all .2s;white-space:nowrap}
   .step-pill.done{color:rgba(232,160,32,.6)}.step-pill.active{background:var(--accent);color:#000;font-weight:700}
   .step-title{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:4px;color:var(--text);text-align:center;margin-bottom:4px}
-  .step-sub{font-size:13px;color:var(--muted);letter-spacing:1px;text-align:center;margin-bottom:22px}
+  .step-sub{font-size:13px;color:var(--muted);letter-spacing:1px;text-align:center;margin-bottom:14px}
   .opt-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%}
   .opt-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%}
   .opt-card{background:rgba(14,16,32,.9);border:2px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all .2s;text-align:center;backdrop-filter:blur(8px);overflow:hidden;position:relative}
@@ -188,10 +188,11 @@ const css = `
   .lp-wrap{display:flex;justify-content:center;margin-bottom:8px}
   .lp-grid{display:grid;gap:3px}
   .lp-cell{background:var(--accent);border-radius:2px;opacity:.7}
-  .cam-wrap{width:100%;max-width:560px;aspect-ratio:4/3;background:var(--surface2);border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 16px}
-  .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:relative;z-index:1}
-  .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.3}
-  .cam-frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;z-index:3}
+  .cam-wrap{width:100%;max-width:580px;aspect-ratio:4/3;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
+  .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:absolute;inset:0;justify-content:center;z-index:2}
+  .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
+  .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .cam-frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:4}
   .cam-corners{position:absolute;inset:0;pointer-events:none;z-index:2}
   .crn{position:absolute;width:22px;height:22px;border-color:var(--accent);border-style:solid;opacity:.8}
   .crn-tl{top:10px;left:10px;border-width:3px 0 0 3px}.crn-tr{top:10px;right:10px;border-width:3px 3px 0 0}
@@ -825,7 +826,9 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
   const [step,setStep]=useState("code"),[digits,setDigits]=useState(["","","",""]),[codeErr,setCodeErr]=useState("");
   const [session,setSession]=useState(null),[selBg,setSelBg]=useState(null),[selFrame,setSelFrame]=useState(null);
   const [photos,setPhotos]=useState([]),[countdown,setCountdown]=useState(null),[flash,setFlash]=useState(false),[shootLock,setShootLock]=useState(false);
+  const [cameraReady,setCameraReady]=useState(false),[cameraError,setCameraError]=useState('');
   const iRefs=[useRef(),useRef(),useRef(),useRef()], timerRef=useRef(null);
+  const videoRef=useRef(null), canvasRef=useRef(null), streamRef=useRef(null);
   const downloadUrl=session?`${DOWNLOAD_BASE}/${session.code}`:"";
   const waText=session?encodeURIComponent(`🎌 ¡Mira mi sesión en AnimeBooth!\n📸 Fondo: ${selBg?.name} · Marco: ${selFrame?.name}\n⬇️ Descarga: ${downloadUrl}`):"";
   const activeCollages=collages.filter(c=>c.active);
@@ -840,13 +843,36 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     setSession(found);setCodeErr("");setStep("background");
   };
 
+  const startCamera=async()=>{
+    setCameraError('');setCameraReady(false);
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}}});
+      streamRef.current=stream;
+      if(videoRef.current){videoRef.current.srcObject=stream;videoRef.current.onloadedmetadata=()=>{videoRef.current.play();setCameraReady(true);};}
+    }catch(err){setCameraError('Sin acceso a cámara: '+err.message);}
+  };
+  const stopCamera=()=>{
+    streamRef.current?.getTracks().forEach(t=>t.stop());
+    streamRef.current=null;setCameraReady(false);
+    if(videoRef.current)videoRef.current.srcObject=null;
+  };
+  const captureFrame=()=>{
+    const v=videoRef.current,c=canvasRef.current;
+    if(!c||!v||!cameraReady)return null;
+    const W=v.videoWidth||640,H=v.videoHeight||480;
+    c.width=W;c.height=H;
+    const ctx=c.getContext('2d');
+    ctx.save();ctx.scale(-1,1);ctx.drawImage(v,-W,0,W,H);ctx.restore();
+    return c.toDataURL('image/jpeg',0.88);
+  };
+  useEffect(()=>{if(step==='shoot')startCamera();else stopCamera();},[step]);
   const startShoot=()=>{
     if(shootLock)return;setShootLock(true);let n=3;setCountdown(n);beep(440,0.08,0.4);
     timerRef.current=setInterval(()=>{n--;if(n>0){setCountdown(n);beep(440,0.08,0.4);}
     else{clearInterval(timerRef.current);setCountdown(0);shootBeep();setFlash(true);setTimeout(()=>setFlash(false),300);
-      setTimeout(()=>{setCountdown(null);setPhotos(p=>{const next=[...p,selBg?.emoji||"📸"];if(next.length>=session.layout)setTimeout(()=>setStep("preview"),400);return next;});setShootLock(false);},350);}},1000);
+      setTimeout(()=>{const photo=captureFrame()||selBg?.emoji||"📸";setCountdown(null);setPhotos(p=>{const next=[...p,photo];if(next.length>=session.layout)setTimeout(()=>setStep("preview"),400);return next;});setShootLock(false);},350);}},1000);
   };
-  useEffect(()=>()=>{if(timerRef.current)clearInterval(timerRef.current);},[]);
+  useEffect(()=>()=>{if(timerRef.current)clearInterval(timerRef.current);stopCamera();},[]);
 
   const doPrint=async()=>{
     printBeep();
@@ -866,9 +892,11 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
         <div style={{display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"#fff",width:baseW*scale,minHeight:baseH*scale}}>
           {photos.map((p,i)=>(
             <div key={i} className="print-photo" style={{height:mini?40:80,fontSize:mini?14:28,position:"relative",overflow:"hidden"}}>
-              {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>}
-              <span style={{position:"relative",zIndex:1}}>{p}</span>
-              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:2}} alt=""/>}
+              {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:0}} alt=""/>}
+              {typeof p==="string"&&p.startsWith("data:")
+                ?<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:1,transform:"scaleX(-1)"}} alt=""/>
+                :<span style={{position:"relative",zIndex:1}}>{p}</span>}
+              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",zIndex:2}} alt=""/>}
             </div>
           ))}
         </div>
@@ -929,24 +957,33 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
           </div>
         )}
         {step==="shoot"&&(
-          <div style={{width:"100%",maxWidth:600,textAlign:"center"}}>
+          <div style={{width:"100%",maxWidth:620,textAlign:"center"}}>
             <div className="step-title">SESIÓN DE FOTOS</div>
             <div className="step-sub">📷 Foto {photos.length+1} de {session.layout} · {selBg?.emoji} {selBg?.name}</div>
             <div className="cam-wrap">
               {selBg?.image_url&&<img src={selBg.image_url} className="cam-bg-img" alt=""/>}
-              {!countdown&&photos.length<session.layout&&<div className="scanline"/>}
+              <video ref={videoRef} autoPlay playsInline muted className="cam-video"/>
+              {!cameraReady&&!cameraError&&<div className="cam-placeholder"><div style={{fontSize:48}}>📷</div><div style={{fontSize:13}}>Iniciando cámara...</div></div>}
+              {cameraError&&<div className="cam-placeholder"><div style={{fontSize:40}}>⚠️</div><div style={{fontSize:12,color:"var(--accent2)",maxWidth:280}}>{cameraError}</div></div>}
+              {cameraReady&&!countdown&&photos.length<session.layout&&<div className="scanline"/>}
               {countdown!==null&&countdown>0&&<div key={countdown} className={`cdown-num c${countdown}`}>{countdown}</div>}
               {flash&&<div className="flash-overlay"/>}
-              {countdown===null&&<div className="cam-placeholder"><div style={{fontSize:60}}>📷</div><div style={{fontSize:14}}>Cámara lista · Posiciónate frente al lente</div><div style={{fontSize:12,color:"var(--muted)"}}>Fondo: {selBg?.emoji} · Marco: {selFrame?.emoji}</div></div>}
               {selFrame?.image_url&&<img src={selFrame.image_url} className="cam-frame-img" alt=""/>}
               <div className="cam-corners"><div className="crn crn-tl"/><div className="crn crn-tr"/><div className="crn crn-bl"/><div className="crn crn-br"/></div>
+              <canvas ref={canvasRef} style={{display:"none"}}/>
             </div>
             <div className="thumb-strip">{Array.from({length:session.layout}).map((_,i)=>(
-              <div key={i} className={`thumb ${i<photos.length?"done":""}`}>
-                {i<photos.length?<><span style={{fontSize:28}}>{photos[i]}</span><div className="chk">✓</div></>:<span style={{fontSize:20,color:"var(--muted)"}}>{i+1}</span>}
+              <div key={i} className={`thumb ${i<photos.length?"done":""}`} style={{overflow:"hidden"}}>
+                {i<photos.length
+                  ? typeof photos[i]==="string"&&photos[i].startsWith("data:")
+                    ? <><img src={photos[i]} style={{width:"100%",height:"100%",objectFit:"cover",transform:"scaleX(-1)"}}/><div className="chk">✓</div></>
+                    : <><span style={{fontSize:24}}>{photos[i]}</span><div className="chk">✓</div></>
+                  : <span style={{fontSize:20,color:"var(--muted)"}}>{i+1}</span>}
               </div>
             ))}</div>
-            {photos.length<session.layout&&<button className="shoot-btn" disabled={shootLock} onClick={startShoot}>{shootLock?"⏳ Espera...":"📸 TOMAR FOTO"}</button>}
+            <div style={{display:"flex",justifyContent:"center",marginTop:4}}>
+              {photos.length<session.layout&&<button className="shoot-btn" disabled={shootLock||!cameraReady} onClick={startShoot}>{shootLock?"⏳ Espera...":(cameraReady?"📸 TOMAR FOTO":"⏳ Cámara...")}</button>}
+            </div>
           </div>
         )}
         {step==="preview"&&(
