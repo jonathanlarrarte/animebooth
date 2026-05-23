@@ -188,7 +188,7 @@ const css = `
   .lp-wrap{display:flex;justify-content:center;margin-bottom:8px}
   .lp-grid{display:grid;gap:3px}
   .lp-cell{background:var(--accent);border-radius:2px;opacity:.7}
-  .cam-wrap{width:min(520px,90vw);aspect-ratio:1/1;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
+  .cam-wrap{width:min(600px,92vw);aspect-ratio:4/3;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
   .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:absolute;inset:0;justify-content:center;z-index:2}
   .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
   .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
@@ -860,19 +860,15 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
   const captureFrame=async()=>{
     const v=videoRef.current,c=canvasRef.current;
     if(!c||!v||!cameraReady)return null;
-    const W=v.videoWidth||640,H=v.videoHeight||480;
-    const SIZE=Math.min(W,H);
-    c.width=SIZE;c.height=SIZE;
+    const W=v.videoWidth||1280,H=v.videoHeight||960;
+    c.width=W;c.height=H;
     const ctx=c.getContext('2d');
-    const ox=(W-SIZE)/2,oy=(H-SIZE)/2;
-    // 1. Draw background image
-    if(selBg?.image_url){try{const bg=await loadImg(selBg.image_url);ctx.drawImage(bg,0,0,SIZE,SIZE);}catch{}}
-    // 2. Draw video mirrored + center-cropped
-    ctx.save();ctx.translate(SIZE,0);ctx.scale(-1,1);
-    ctx.drawImage(v,ox,oy,SIZE,SIZE,0,0,SIZE,SIZE);
-    ctx.restore();
-    // 3. Draw frame on top (preserves PNG transparency)
-    if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,SIZE,SIZE);}catch{}}
+    // 1. Background image stretched to fill full 4:3 frame
+    if(selBg?.image_url){try{const bg=await loadImg(selBg.image_url);ctx.drawImage(bg,0,0,W,H);}catch{}}
+    // 2. Video mirrored, full frame (4:3)
+    ctx.save();ctx.translate(W,0);ctx.scale(-1,1);ctx.drawImage(v,0,0,W,H);ctx.restore();
+    // 3. Frame PNG on top (fill entire area, PNG transparency preserved)
+    if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,W,H);}catch{}}
     try{return c.toDataURL('image/jpeg',0.88);}catch{return null;}
   };
   useEffect(()=>{if(step==='shoot')startCamera();else stopCamera();},[step]);
@@ -896,25 +892,25 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
   // Collage config for current session
   const sessionCollage=collages.find(c=>c.photo_count===session?.layout)||{cols:2,rows:2,gap:4,border:8};
   const PrintPreview=({mini=false})=>{
-    const scale=mini?0.45:1;const baseW=220,baseH=165;
+    const scale=mini?0.38:1;const baseW=mini?200:260;
     const isDataUrl=p=>typeof p==="string"&&p.startsWith("data:");
     return(
-      <div className="print-paper" style={{position:"relative",overflow:"hidden"}}>
-        {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.4}} alt=""/>}
-        <div style={{position:"relative",display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"transparent",width:baseW*scale,minHeight:baseH*scale}}>
+      <div className="print-paper" style={{position:"relative",overflow:"hidden",display:"inline-block"}}>
+        {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.35}} alt=""/>}
+        <div style={{position:"relative",display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"transparent",width:baseW*scale}}>
           {photos.map((p,i)=>(
-            <div key={i} className="print-photo" style={{height:mini?40:80,position:"relative",overflow:"hidden"}}>
+            <div key={i} className="print-photo" style={{aspectRatio:"4/3",position:"relative",overflow:"hidden"}}>
               {isDataUrl(p)
                 ?<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
                 :<>
                   {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:0}} alt=""/>}
-                  <span style={{position:"relative",zIndex:1,fontSize:mini?14:28}}>{p}</span>
+                  <span style={{position:"relative",zIndex:1,fontSize:mini?12:28}}>{p}</span>
                   {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",zIndex:2}} alt=""/>}
                 </>}
             </div>
           ))}
         </div>
-        <div style={{textAlign:"center",fontSize:mini?7:9,color:selBg?.image_url?"#fff":"#999",padding:"3px 0",fontFamily:"sans-serif",position:"relative",textShadow:"0 1px 2px rgba(0,0,0,.8)"}}>AnimeBooth · {selBg?.name} · {selFrame?.name}</div>
+        <div style={{textAlign:"center",fontSize:mini?7:10,color:selBg?.image_url?"#fff":"#999",padding:"4px 0",fontFamily:"sans-serif",position:"relative",textShadow:"0 1px 2px rgba(0,0,0,.8)"}}>AnimeBooth · {selBg?.name} · {selFrame?.name}</div>
       </div>
     );
   };
