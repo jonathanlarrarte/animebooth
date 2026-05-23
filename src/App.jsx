@@ -190,7 +190,7 @@ const css = `
   .lp-cell{background:var(--accent);border-radius:2px;opacity:.7}
   .cam-wrap{width:min(600px,92vw);aspect-ratio:4/3;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
   .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:absolute;inset:0;justify-content:center;z-index:2}
-  .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1;opacity:0.7}
+  .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
   .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
   .cam-frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:4}
   .cam-corners{position:absolute;inset:0;pointer-events:none;z-index:5}
@@ -863,14 +863,12 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     const W=v.videoWidth||1280,H=v.videoHeight||960;
     c.width=W;c.height=H;
     const ctx=c.getContext('2d');
-    // 1. Fondo al 100% como base (canvas siempre opaco → sin cuadros en JPEG)
+    // Capa 1: Fondo al 100% (base sólida, nunca transparente → sin cuadros en JPEG)
     ctx.fillStyle='#111';ctx.fillRect(0,0,W,H);
     if(selBg?.image_url){try{const bg=await loadImg(selBg.image_url);ctx.drawImage(bg,0,0,W,H);}catch{}}
-    // 2. Video al 70% encima: persona claramente visible, fondo se ve a través
-    ctx.globalAlpha=0.7;
+    // Capa 2: Video del usuario al 100% encima del fondo
     ctx.save();ctx.translate(W,0);ctx.scale(-1,1);ctx.drawImage(v,0,0,W,H);ctx.restore();
-    ctx.globalAlpha=1;
-    // 3. Marco encima al 100% (PNG con transparencia preservada)
+    // Capa 3: Marco PNG al 100% — área transparente deja ver video, bordes sólidos cubren todo
     if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,W,H);}catch{}}
     try{return c.toDataURL('image/jpeg',0.88);}catch{return null;}
   };
