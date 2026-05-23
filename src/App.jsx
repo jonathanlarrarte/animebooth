@@ -856,7 +856,8 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     streamRef.current=null;setCameraReady(false);
     if(videoRef.current)videoRef.current.srcObject=null;
   };
-  const captureFrame=()=>{
+  const loadImg=src=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>res(img);img.onerror=rej;img.src=src;});
+  const captureFrame=async()=>{
     const v=videoRef.current,c=canvasRef.current;
     if(!c||!v||!cameraReady)return null;
     const W=v.videoWidth||640,H=v.videoHeight||480;
@@ -864,18 +865,22 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     c.width=SIZE;c.height=SIZE;
     const ctx=c.getContext('2d');
     const ox=(W-SIZE)/2,oy=(H-SIZE)/2;
-    // Mirror + center-crop to square
+    // 1. Draw background image
+    if(selBg?.image_url){try{const bg=await loadImg(selBg.image_url);ctx.drawImage(bg,0,0,SIZE,SIZE);}catch{}}
+    // 2. Draw video mirrored + center-cropped
     ctx.save();ctx.translate(SIZE,0);ctx.scale(-1,1);
     ctx.drawImage(v,ox,oy,SIZE,SIZE,0,0,SIZE,SIZE);
     ctx.restore();
-    return c.toDataURL('image/jpeg',0.88);
+    // 3. Draw frame on top (preserves PNG transparency)
+    if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,SIZE,SIZE);}catch{}}
+    try{return c.toDataURL('image/jpeg',0.88);}catch{return null;}
   };
   useEffect(()=>{if(step==='shoot')startCamera();else stopCamera();},[step]);
   const startShoot=()=>{
     if(shootLock)return;setShootLock(true);let n=3;setCountdown(n);beep(440,0.08,0.4);
     timerRef.current=setInterval(()=>{n--;if(n>0){setCountdown(n);beep(440,0.08,0.4);}
     else{clearInterval(timerRef.current);setCountdown(0);shootBeep();setFlash(true);setTimeout(()=>setFlash(false),300);
-      setTimeout(()=>{const photo=captureFrame()||selBg?.emoji||"📸";setCountdown(null);setPhotos(p=>{const next=[...p,photo];if(next.length>=session.layout)setTimeout(()=>setStep("preview"),400);return next;});setShootLock(false);},350);}},1000);
+      setTimeout(async()=>{const photo=await captureFrame()||selBg?.emoji||"📸";setCountdown(null);setPhotos(p=>{const next=[...p,photo];if(next.length>=session.layout)setTimeout(()=>setStep("preview"),400);return next;});setShootLock(false);},350);}},1000);
   };
   useEffect(()=>()=>{if(timerRef.current)clearInterval(timerRef.current);stopCamera();},[]);
 
@@ -891,21 +896,25 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
   // Collage config for current session
   const sessionCollage=collages.find(c=>c.photo_count===session?.layout)||{cols:2,rows:2,gap:4,border:8};
   const PrintPreview=({mini=false})=>{
-    const scale=mini?0.45:1;const baseW=mini?220:220,baseH=mini?165:165;
+    const scale=mini?0.45:1;const baseW=220,baseH=165;
+    const isDataUrl=p=>typeof p==="string"&&p.startsWith("data:");
     return(
-      <div className="print-paper">
-        <div style={{display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"#fff",width:baseW*scale,minHeight:baseH*scale}}>
+      <div className="print-paper" style={{position:"relative",overflow:"hidden"}}>
+        {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.4}} alt=""/>}
+        <div style={{position:"relative",display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"transparent",width:baseW*scale,minHeight:baseH*scale}}>
           {photos.map((p,i)=>(
-            <div key={i} className="print-photo" style={{height:mini?40:80,fontSize:mini?14:28,position:"relative",overflow:"hidden"}}>
-              {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:0}} alt=""/>}
-              {typeof p==="string"&&p.startsWith("data:")
-                ?<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:1,transform:"scaleX(-1)"}} alt=""/>
-                :<span style={{position:"relative",zIndex:1}}>{p}</span>}
-              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",zIndex:2}} alt=""/>}
+            <div key={i} className="print-photo" style={{height:mini?40:80,position:"relative",overflow:"hidden"}}>
+              {isDataUrl(p)
+                ?<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                :<>
+                  {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:0}} alt=""/>}
+                  <span style={{position:"relative",zIndex:1,fontSize:mini?14:28}}>{p}</span>
+                  {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",zIndex:2}} alt=""/>}
+                </>}
             </div>
           ))}
         </div>
-        <div style={{textAlign:"center",fontSize:mini?7:9,color:"#999",padding:"3px 0",fontFamily:"sans-serif"}}>AnimeBooth · {selBg?.name} · {selFrame?.name}</div>
+        <div style={{textAlign:"center",fontSize:mini?7:9,color:selBg?.image_url?"#fff":"#999",padding:"3px 0",fontFamily:"sans-serif",position:"relative",textShadow:"0 1px 2px rgba(0,0,0,.8)"}}>AnimeBooth · {selBg?.name} · {selFrame?.name}</div>
       </div>
     );
   };
