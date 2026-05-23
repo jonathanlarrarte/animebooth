@@ -835,7 +835,13 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     try{
       const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}}});
       streamRef.current=stream;
-      if(videoRef.current){videoRef.current.srcObject=stream;videoRef.current.onloadedmetadata=()=>{videoRef.current.play();setCameraReady(true);};}
+      const vid=videoRef.current;
+      if(vid){
+        vid.srcObject=stream;
+        const onReady=()=>{vid.play().catch(()=>{});setCameraReady(true);};
+        if(vid.readyState>=1){onReady();}
+        else{vid.addEventListener('loadedmetadata',onReady,{once:true});}
+      }
     }catch(err){setCameraError('Sin acceso a cámara: '+err.message);}
   };
   const stopCamera=()=>{
@@ -940,7 +946,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             <div className="step-title">SESIÓN DE FOTOS</div>
             <div className="step-sub">📷 Foto {photos.length+1} de {session.layout} · {selFrame?.emoji} {selFrame?.name}</div>
             <div className="cam-wrap">
-              <video ref={videoRef} autoPlay playsInline muted className="cam-video"/>
+              <video ref={videoRef} autoPlay playsInline muted className="cam-video" style={{visibility:cameraReady?'visible':'hidden'}}/>
               {!cameraReady&&!cameraError&&<div className="cam-placeholder"><div style={{fontSize:48}}>📷</div><div style={{fontSize:13}}>Iniciando cámara...</div></div>}
               {cameraError&&<div className="cam-placeholder"><div style={{fontSize:40}}>⚠️</div><div style={{fontSize:12,color:"var(--accent2)",maxWidth:280}}>{cameraError}</div></div>}
               {cameraReady&&!countdown&&photos.length<session.layout&&<div className="scanline" style={{zIndex:3}}/>}
