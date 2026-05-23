@@ -191,7 +191,7 @@ const css = `
   .cam-wrap{width:min(600px,92vw);aspect-ratio:4/3;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
   .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:absolute;inset:0;justify-content:center;z-index:2}
   .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
-  .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;mix-blend-mode:screen;pointer-events:none}
+  .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;opacity:0.45;pointer-events:none}
   .cam-frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:4}
   .cam-corners{position:absolute;inset:0;pointer-events:none;z-index:5}
   .crn{position:absolute;width:22px;height:22px;border-color:var(--accent);border-style:solid;opacity:.8}
@@ -863,13 +863,12 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     const W=v.videoWidth||1280,H=v.videoHeight||960;
     c.width=W;c.height=H;
     const ctx=c.getContext('2d');
-    // 1. Video (persona) como base
+    // 1. Video (persona) al 100% como base
     ctx.save();ctx.translate(W,0);ctx.scale(-1,1);ctx.drawImage(v,0,0,W,H);ctx.restore();
-    // 2. Fondo encima del video con screen blend (atmosférico, no oscurece la cara)
+    // 2. Fondo encima al 45% de opacidad — doble exposición: persona + escenario
     if(selBg?.image_url){try{
       const bg=await loadImg(selBg.image_url);
-      ctx.globalCompositeOperation='screen';ctx.drawImage(bg,0,0,W,H);
-      ctx.globalCompositeOperation='source-over';
+      ctx.globalAlpha=0.45;ctx.drawImage(bg,0,0,W,H);ctx.globalAlpha=1;
     }catch{}}
     // 3. Marco encima de todo (PNG con transparencia preservada)
     if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,W,H);}catch{}}
