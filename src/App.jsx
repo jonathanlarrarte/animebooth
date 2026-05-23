@@ -188,11 +188,11 @@ const css = `
   .lp-wrap{display:flex;justify-content:center;margin-bottom:8px}
   .lp-grid{display:grid;gap:3px}
   .lp-cell{background:var(--accent);border-radius:2px;opacity:.7}
-  .cam-wrap{width:100%;max-width:580px;aspect-ratio:4/3;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
+  .cam-wrap{width:min(520px,90vw);aspect-ratio:1/1;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
   .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:absolute;inset:0;justify-content:center;z-index:2}
   .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
   .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
-  .cam-frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:4}
+  .cam-frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:4}
   .cam-corners{position:absolute;inset:0;pointer-events:none;z-index:2}
   .crn{position:absolute;width:22px;height:22px;border-color:var(--accent);border-style:solid;opacity:.8}
   .crn-tl{top:10px;left:10px;border-width:3px 0 0 3px}.crn-tr{top:10px;right:10px;border-width:3px 3px 0 0}
@@ -860,9 +860,14 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     const v=videoRef.current,c=canvasRef.current;
     if(!c||!v||!cameraReady)return null;
     const W=v.videoWidth||640,H=v.videoHeight||480;
-    c.width=W;c.height=H;
+    const SIZE=Math.min(W,H);
+    c.width=SIZE;c.height=SIZE;
     const ctx=c.getContext('2d');
-    ctx.save();ctx.scale(-1,1);ctx.drawImage(v,-W,0,W,H);ctx.restore();
+    const ox=(W-SIZE)/2,oy=(H-SIZE)/2;
+    // Mirror + center-crop to square
+    ctx.save();ctx.translate(SIZE,0);ctx.scale(-1,1);
+    ctx.drawImage(v,ox,oy,SIZE,SIZE,0,0,SIZE,SIZE);
+    ctx.restore();
     return c.toDataURL('image/jpeg',0.88);
   };
   useEffect(()=>{if(step==='shoot')startCamera();else stopCamera();},[step]);
@@ -896,7 +901,7 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
               {typeof p==="string"&&p.startsWith("data:")
                 ?<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:1,transform:"scaleX(-1)"}} alt=""/>
                 :<span style={{position:"relative",zIndex:1}}>{p}</span>}
-              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",zIndex:2}} alt=""/>}
+              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",zIndex:2}} alt=""/>}
             </div>
           ))}
         </div>
