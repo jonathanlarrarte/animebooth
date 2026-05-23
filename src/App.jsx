@@ -188,7 +188,7 @@ const css = `
   .lp-wrap{display:flex;justify-content:center;margin-bottom:8px}
   .lp-grid{display:grid;gap:3px}
   .lp-cell{background:var(--accent);border-radius:2px;opacity:.7}
-  .cam-wrap{width:min(600px,92vw);aspect-ratio:4/3;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
+  .cam-wrap{width:min(540px,92vw);aspect-ratio:1/1;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
   .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:absolute;inset:0;justify-content:center;z-index:2}
   .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
   .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
@@ -320,14 +320,12 @@ function UploadZone({ accept, preview, onFile, label="Arrastra o haz clic para s
 }
 
 // ── STATISTICS ───────────────────────────────────────────────────────────────
-function Statistics({ sessions, events, backgrounds }) {
+function Statistics({ sessions, events }) {
   const [selEvent, setSelEvent] = useState("all");
   const used=sessions.filter(c=>c.used&&(selEvent==="all"||c.event_id===selEvent));
   const hourly=Array.from({length:14},(_,i)=>{const h=9+i;const count=used.filter(c=>c.used_at&&new Date(c.used_at).getHours()===h).length;return{hora:`${h}:00`,sesiones:count||[3,5,8,12,15,9,7,14,18,11,6,4,2,1][i]||0};});
   const layoutData=[1,2,4].map(n=>({name:`${n} Foto${n>1?"s":""}`,value:used.filter(c=>c.layout===n).length||Math.floor(Math.random()*30+5)}));
   const byEvent=events.map(e=>({name:e.name.split(" ")[0],sesiones:sessions.filter(c=>c.event_id===e.id&&c.used).length}));
-  const bgCounts={};used.forEach(c=>{if(c.bg_id)bgCounts[c.bg_id]=(bgCounts[c.bg_id]||0)+1;});
-  const topBgs=backgrounds.map(b=>({name:b.name,emoji:b.emoji,series:b.series,count:bgCounts[b.id]||Math.floor(Math.random()*20+2)})).sort((a,b)=>b.count-a.count).slice(0,5);
   const total=used.length, peak=Math.max(...hourly.map(h=>h.sesiones));
   const topLayout=[...layoutData].sort((a,b)=>b.value-a.value)[0];
   const CT={fill:"var(--text)",fontSize:11};
@@ -341,7 +339,7 @@ function Statistics({ sessions, events, backgrounds }) {
         </select>
       </div>
       <div className="stats-grid">
-        {[{val:total,label:"Sesiones Totales",icon:"📸",c1:"#e8a020",c2:"#c47010"},{val:peak,label:"Pico por Hora",icon:"⚡",c1:"#ff4444",c2:"#cc2222"},{val:topLayout?.name||"—",label:"Collage Favorito",icon:"🖼",c1:"#44aaff",c2:"#2266cc"},{val:topBgs[0]?.emoji||"🎭",label:`Fondo #1: ${topBgs[0]?.name||""}`,icon:"🖼️",c1:"#44cc88",c2:"#228844"}].map((s,i)=>(
+        {[{val:total,label:"Sesiones Totales",icon:"📸",c1:"#e8a020",c2:"#c47010"},{val:peak,label:"Pico por Hora",icon:"⚡",c1:"#ff4444",c2:"#cc2222"},{val:topLayout?.name||"—",label:"Collage Favorito",icon:"🖼",c1:"#44aaff",c2:"#2266cc"}].map((s,i)=>(
           <div key={i} className="stat-card" style={{"--c1":s.c1,"--c2":s.c2}}>
             <div className="stat-val" style={{fontSize:typeof s.val==="string"&&s.val.length>4?"22px":undefined}}>{s.val}</div>
             <div className="stat-label">{s.label}</div><div className="stat-icon">{s.icon}</div>
@@ -379,23 +377,12 @@ function Statistics({ sessions, events, backgrounds }) {
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="table-card">
-        <div className="table-head"><span className="table-title">🏆 Fondos Más Populares</span></div>
-        <table><thead><tr><th>#</th><th>Fondo</th><th>Serie</th><th>Veces Usado</th><th>%</th></tr></thead>
-          <tbody>{topBgs.map((b,i)=>{const pct=total>0?Math.round(b.count/total*100):0;return(
-            <tr key={i}><td style={{color:"var(--accent)",fontFamily:"'Bebas Neue'",fontSize:20}}>{i+1}</td>
-              <td>{b.emoji} {b.name}</td><td><SBadge s={b.series}/></td>
-              <td style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"var(--accent)"}}>{b.count}</td>
-              <td><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{flex:1,height:4,background:"var(--surface2)",borderRadius:2}}><div style={{width:`${Math.min(pct,100)}%`,height:"100%",background:"var(--accent)",borderRadius:2}}/></div><span style={{fontSize:12,color:"var(--muted)",width:32}}>{pct}%</span></div></td>
-            </tr>);})}</tbody>
-        </table>
-      </div>
     </div>
   );
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({ events, sessions, backgrounds, frames }) {
+function Dashboard({ events, sessions, frames }) {
   return (
     <div>
       <div className="page-header"><div><div className="page-title">Dashboard</div><div className="page-subtitle">Bienvenido a AnimeBooth · Panel de control</div></div><span className="badge badge-active">✓ Liene 1100 Conectada</span></div>
@@ -417,7 +404,7 @@ function Dashboard({ events, sessions, backgrounds, frames }) {
         <div style={{width:240}}>
           <div className="settings-card" style={{marginBottom:16}}>
             <div className="settings-title">Recursos</div>
-            {[["🖼️","Fondos",backgrounds.length],["🎨","Marcos",frames.length],["📺","Series",new Set(backgrounds.map(b=>b.series)).size]].map(([ic,l,v])=>(
+            {[["🎨","Marcos",frames.length]].map(([ic,l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid var(--border)"}}><span>{ic} {l}</span><span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"var(--accent)"}}>{v}</span></div>
             ))}
           </div>
@@ -822,15 +809,15 @@ function PrinterSettings() {
 }
 
 // ── KIOSK MODE ───────────────────────────────────────────────────────────────
-function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExit }) {
+function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   const [step,setStep]=useState("code"),[digits,setDigits]=useState(["","","",""]),[codeErr,setCodeErr]=useState("");
-  const [session,setSession]=useState(null),[selBg,setSelBg]=useState(null),[selFrame,setSelFrame]=useState(null);
+  const [session,setSession]=useState(null),[selFrame,setSelFrame]=useState(null);
   const [photos,setPhotos]=useState([]),[countdown,setCountdown]=useState(null),[flash,setFlash]=useState(false),[shootLock,setShootLock]=useState(false);
   const [cameraReady,setCameraReady]=useState(false),[cameraError,setCameraError]=useState('');
   const iRefs=[useRef(),useRef(),useRef(),useRef()], timerRef=useRef(null);
   const videoRef=useRef(null), canvasRef=useRef(null), streamRef=useRef(null);
   const downloadUrl=session?`${DOWNLOAD_BASE}/${session.code}`:"";
-  const waText=session?encodeURIComponent(`🎌 ¡Mira mi sesión en AnimeBooth!\n📸 Fondo: ${selBg?.name} · Marco: ${selFrame?.name}\n⬇️ Descarga: ${downloadUrl}`):"";
+  const waText=session?encodeURIComponent(`🎌 ¡Mira mi sesión en AnimeBooth!\n🎨 Marco: ${selFrame?.name}\n⬇️ Descarga: ${downloadUrl}`):"";
   const activeCollages=collages.filter(c=>c.active);
 
   const handleDigit=(i,v)=>{if(!/^\d?$/.test(v))return;const n=[...digits];n[i]=v;setDigits(n);if(v&&i<3)iRefs[i+1].current?.focus();};
@@ -840,7 +827,7 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     const c=digits.join("");const found=sessions.find(x=>x.code===c&&!x.used);
     if(!found){setCodeErr("Código inválido o ya usado. Intenta de nuevo.");beep(200,0.3,0.4,"sawtooth");return;}
     beep(660,0.1);setTimeout(()=>beep(880,0.1),120);setTimeout(()=>beep(1100,0.15),240);
-    setSession(found);setCodeErr("");setStep("background");
+    setSession(found);setCodeErr("");setStep("frame");
   };
 
   const startCamera=async()=>{
@@ -863,12 +850,8 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     const W=v.videoWidth||1280,H=v.videoHeight||960;
     c.width=W;c.height=H;
     const ctx=c.getContext('2d');
-    // Capa 1: Fondo al 100% (base sólida, nunca transparente → sin cuadros en JPEG)
     ctx.fillStyle='#111';ctx.fillRect(0,0,W,H);
-    if(selBg?.image_url){try{const bg=await loadImg(selBg.image_url);ctx.drawImage(bg,0,0,W,H);}catch{}}
-    // Capa 2: Video del usuario al 100% encima del fondo
     ctx.save();ctx.translate(W,0);ctx.scale(-1,1);ctx.drawImage(v,0,0,W,H);ctx.restore();
-    // Capa 3: Marco PNG al 100% — área transparente deja ver video, bordes sólidos cubren todo
     if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,W,H);}catch{}}
     try{return c.toDataURL('image/jpeg',0.88);}catch{return null;}
   };
@@ -883,12 +866,12 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
 
   const doPrint=async()=>{
     printBeep();
-    const{data}=await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),bg_id:selBg?.id||null,frame_id:selFrame?.id||null}).eq("id",session.id).select().single();
+    const{data}=await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),frame_id:selFrame?.id||null}).eq("id",session.id).select().single();
     if(data)setSessions(s=>s.map(x=>x.id===session.id?data:x));setStep("success");
   };
-  const restart=()=>{setStep("code");setDigits(["","","",""]);setCodeErr("");setSession(null);setSelBg(null);setSelFrame(null);setPhotos([]);setCountdown(null);setShootLock(false);};
+  const restart=()=>{setStep("code");setDigits(["","","",""]);setCodeErr("");setSession(null);setSelFrame(null);setPhotos([]);setCountdown(null);setShootLock(false);};
 
-  const STEPS=["code","background","frame","shoot","preview","success"],STEP_LABELS=["Código","Fondo","Marco","Fotos","Preview","Listo"],si=STEPS.indexOf(step);
+  const STEPS=["code","frame","shoot","preview","success"],STEP_LABELS=["Código","Marco","Fotos","Preview","Listo"],si=STEPS.indexOf(step);
 
   // Collage config for current session
   const sessionCollage=collages.find(c=>c.photo_count===session?.layout)||{cols:2,rows:2,gap:4,border:8};
@@ -897,21 +880,19 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     const isDataUrl=p=>typeof p==="string"&&p.startsWith("data:");
     return(
       <div className="print-paper" style={{position:"relative",overflow:"hidden",display:"inline-block"}}>
-        {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.35}} alt=""/>}
         <div style={{position:"relative",display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"transparent",width:baseW*scale}}>
           {photos.map((p,i)=>(
-            <div key={i} className="print-photo" style={{aspectRatio:"4/3",position:"relative",overflow:"hidden"}}>
+            <div key={i} className="print-photo" style={{aspectRatio:"1/1",position:"relative",overflow:"hidden"}}>
               {isDataUrl(p)
                 ?<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
                 :<>
-                  {selBg?.image_url&&<img src={selBg.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:0}} alt=""/>}
                   <span style={{position:"relative",zIndex:1,fontSize:mini?12:28}}>{p}</span>
                   {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",zIndex:2}} alt=""/>}
                 </>}
             </div>
           ))}
         </div>
-        <div style={{textAlign:"center",fontSize:mini?7:10,color:selBg?.image_url?"#fff":"#999",padding:"4px 0",fontFamily:"sans-serif",position:"relative",textShadow:"0 1px 2px rgba(0,0,0,.8)"}}>AnimeBooth · {selBg?.name} · {selFrame?.name}</div>
+        <div style={{textAlign:"center",fontSize:mini?7:10,color:"#999",padding:"4px 0",fontFamily:"sans-serif",position:"relative",textShadow:"0 1px 2px rgba(0,0,0,.8)"}}>AnimeBooth · {selFrame?.name}</div>
       </div>
     );
   };
@@ -934,21 +915,6 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
             <div style={{marginTop:14,fontSize:12,color:"var(--muted)"}}>¿No tienes código? Consulta en recepción 🎪</div>
           </div>
         )}
-        {step==="background"&&(
-          <div style={{width:"100%",maxWidth:760}}>
-            <div className="step-title">ELIGE TU FONDO</div>
-            <div className="step-sub">🎌 Selecciona el universo anime de tu sesión</div>
-            <div className="opt-grid-4" style={{marginBottom:20}}>
-              {backgrounds.map(bg=>(
-                <div key={bg.id} className={`opt-card ${selBg?.id===bg.id?"sel":""}`} style={{background:`linear-gradient(160deg,${bg.color},${bg.accent}22)`}} onClick={()=>{setSelBg(bg);beep(660,0.05);}}>
-                  {bg.image_url&&<img src={bg.image_url} className="opt-card-img" alt=""/>}
-                  <div className="opt-card-content"><div className="opt-emoji">{bg.emoji}</div><div className="opt-label">{bg.name}</div><div className="opt-meta">{SERIES_LABELS[bg.series]}</div></div>
-                </div>
-              ))}
-            </div>
-            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={restart}>← Salir</button><button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selBg} onClick={()=>setStep("frame")}>Siguiente →</button></div>
-          </div>
-        )}
         {step==="frame"&&(
           <div style={{width:"100%",maxWidth:720}}>
             <div className="step-title">ELIGE TU MARCO</div>
@@ -964,15 +930,14 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
                 </div>
               ))}
             </div>
-            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={()=>setStep("background")}>← Atrás</button><button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selFrame} onClick={()=>setStep("shoot")}>¡Comenzar! 📸</button></div>
+            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={restart}>← Salir</button><button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selFrame} onClick={()=>setStep("shoot")}>¡Comenzar! 📸</button></div>
           </div>
         )}
         {step==="shoot"&&(
           <div style={{width:"100%",maxWidth:620,textAlign:"center"}}>
             <div className="step-title">SESIÓN DE FOTOS</div>
-            <div className="step-sub">📷 Foto {photos.length+1} de {session.layout} · {selBg?.emoji} {selBg?.name}</div>
+            <div className="step-sub">📷 Foto {photos.length+1} de {session.layout} · {selFrame?.emoji} {selFrame?.name}</div>
             <div className="cam-wrap">
-              {selBg?.image_url&&<img src={selBg.image_url} className="cam-bg-img" alt=""/>}
               <video ref={videoRef} autoPlay playsInline muted className="cam-video"/>
               {!cameraReady&&!cameraError&&<div className="cam-placeholder"><div style={{fontSize:48}}>📷</div><div style={{fontSize:13}}>Iniciando cámara...</div></div>}
               {cameraError&&<div className="cam-placeholder"><div style={{fontSize:40}}>⚠️</div><div style={{fontSize:12,color:"var(--accent2)",maxWidth:280}}>{cameraError}</div></div>}
@@ -1003,7 +968,7 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
             <div style={{display:"flex",gap:28,justifyContent:"center",alignItems:"flex-start",marginBottom:20}}>
               <div><div style={{fontSize:11,color:"var(--muted)",letterSpacing:2,marginBottom:8}}>IMPRESIÓN FINAL</div><PrintPreview/></div>
               <div style={{textAlign:"left",maxWidth:200}}>
-                {[["📸","Fotos",`${session.layout} fotos`],["🖼️","Fondo",selBg?.name],["🎨","Marco",selFrame?.name],["📐","Collage",collages.find(c=>c.photo_count===session.layout)?.name||`${sessionCollage.cols}×${sessionCollage.rows}`]].map(([ic,l,v])=>(
+                {[["📸","Fotos",`${session.layout} fotos`],["🎨","Marco",selFrame?.name],["📐","Collage",collages.find(c=>c.photo_count===session.layout)?.name||`${sessionCollage.cols}×${sessionCollage.rows}`]].map(([ic,l,v])=>(
                   <div key={l} style={{marginBottom:8}}><div style={{fontSize:11,color:"var(--muted)"}}>{ic} {l}</div><div style={{fontWeight:700,fontSize:14}}>{v}</div></div>
                 ))}
                 <div style={{marginTop:14,padding:"10px",background:"rgba(68,170,68,.08)",border:"1px solid rgba(68,170,68,.2)",borderRadius:6,fontSize:12,color:"#44aa44"}}>✓ Liene 1100 lista<br/>⏱ ~15-20 seg</div>
@@ -1030,7 +995,7 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
                 <div style={{fontSize:13,letterSpacing:2,color:"var(--muted)",textTransform:"uppercase",marginBottom:8}}>🎞️ GIF Animado</div>
                 <div className="result-gif" style={{margin:"0 auto 12px"}}>
                   {photos.slice(0,3).map((p,i)=><div key={i} className="gif-frame" style={{animationDelay:`${i*0.8}s`}}><span style={{fontSize:60}}>{p}</span></div>)}
-                  <div className="gif-overlay">ANIME BOOTH · {selBg?.name?.toUpperCase()}</div>
+                  <div className="gif-overlay">ANIME BOOTH · {selFrame?.name?.toUpperCase()}</div>
                 </div>
                 <div style={{fontSize:12,color:"var(--muted)",marginBottom:12}}>GIF listo para compartir 🎊</div>
                 <button className="wa-btn" onClick={()=>window.open(`https://wa.me/?text=${waText}`,"_blank")}><span style={{fontSize:20}}>💬</span> COMPARTIR WHATSAPP</button>
@@ -1038,7 +1003,7 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
               <div className="qr-card" style={{minWidth:160}}>
                 <div style={{fontSize:13,letterSpacing:2,color:"var(--muted)",textTransform:"uppercase",marginBottom:8}}>🖨️ Tu Impresión</div>
                 <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><PrintPreview mini/></div>
-                <div style={{fontSize:11,color:"var(--muted)"}}>{session.layout} fotos<br/>{selBg?.emoji} {selBg?.name}<br/>{selFrame?.emoji} {selFrame?.name}</div>
+                <div style={{fontSize:11,color:"var(--muted)"}}>{session.layout} fotos<br/>{selFrame?.emoji} {selFrame?.name}</div>
               </div>
             </div>
             <div style={{display:"flex",gap:12,justifyContent:"center",marginTop:24}}>
@@ -1056,7 +1021,7 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
 export default function App() {
   const [authUser,setAuthUser]=useState(null),[authLoading,setAuthLoading]=useState(true);
   const [view,setView]=useState("dashboard"),[kiosk,setKiosk]=useState(false);
-  const [events,setEvents]=useState([]),[backgrounds,setBackgrounds]=useState([]);
+  const [events,setEvents]=useState([]);
   const [frames,setFrames]=useState([]),[sessions,setSessions]=useState([]);
   const [collages,setCollages]=useState([]),[dataLoading,setDataLoading]=useState(false);
 
@@ -1071,12 +1036,11 @@ export default function App() {
     setDataLoading(true);
     Promise.all([
       supabase.from("events").select("*").order("created_at"),
-      supabase.from("backgrounds").select("*").order("created_at"),
       supabase.from("frames").select("*").order("created_at"),
       supabase.from("sessions").select("*").order("created_at",{ascending:false}),
       supabase.from("collages").select("*").order("created_at"),
-    ]).then(([ev,bg,fr,se,co])=>{
-      if(ev.data)setEvents(ev.data);if(bg.data)setBackgrounds(bg.data);
+    ]).then(([ev,fr,se,co])=>{
+      if(ev.data)setEvents(ev.data);
       if(fr.data)setFrames(fr.data);if(se.data)setSessions(se.data);
       if(co.data)setCollages(co.data);setDataLoading(false);
     });
@@ -1084,7 +1048,7 @@ export default function App() {
 
   const handleLogout=async()=>{
     await supabase.auth.signOut();
-    setEvents([]);setBackgrounds([]);setFrames([]);setSessions([]);setCollages([]);setView("dashboard");
+    setEvents([]);setFrames([]);setSessions([]);setCollages([]);setView("dashboard");
   };
 
   const NAV=[
@@ -1093,7 +1057,6 @@ export default function App() {
     {id:"events",icon:"🎪",label:"Eventos"},
     {id:"codes",icon:"🎫",label:"Códigos"},
     {section:"Recursos"},
-    {id:"backgrounds",icon:"🖼️",label:"Fondos"},
     {id:"frames",icon:"🎨",label:"Marcos"},
     {id:"collages",icon:"📐",label:"Collages"},
     {section:"Sistema"},
@@ -1102,7 +1065,7 @@ export default function App() {
 
   if(authLoading)return<><style>{css}</style><Loader/></>;
   if(!authUser)return<><style>{css}</style><Login onAuth={()=>supabase.auth.getSession().then(({data:{session}})=>setAuthUser(session?.user??null))}/></>;
-  if(kiosk)return<><style>{css}</style><KioskMode sessions={sessions} setSessions={setSessions} backgrounds={backgrounds} frames={frames} collages={collages} onExit={()=>setKiosk(false)}/></>;
+  if(kiosk)return<><style>{css}</style><KioskMode sessions={sessions} setSessions={setSessions} frames={frames} collages={collages} onExit={()=>setKiosk(false)}/></>;
 
   return(
     <><style>{css}</style>
@@ -1121,11 +1084,10 @@ export default function App() {
       </div>
       <div className="main">
         {dataLoading?<Loader/>:<>
-          {view==="dashboard"   &&<Dashboard events={events} sessions={sessions} backgrounds={backgrounds} frames={frames}/>}
-          {view==="stats"       &&<Statistics sessions={sessions} events={events} backgrounds={backgrounds}/>}
+          {view==="dashboard"   &&<Dashboard events={events} sessions={sessions} frames={frames}/>}
+          {view==="stats"       &&<Statistics sessions={sessions} events={events}/>}
           {view==="events"      &&<Events events={events} setEvents={setEvents}/>}
           {view==="codes"       &&<Codes sessions={sessions} setSessions={setSessions} events={events} collages={collages}/>}
-          {view==="backgrounds" &&<Backgrounds backgrounds={backgrounds} setBackgrounds={setBackgrounds}/>}
           {view==="frames"      &&<Frames frames={frames} setFrames={setFrames}/>}
           {view==="collages"    &&<Collages collages={collages} setCollages={setCollages}/>}
           {view==="printer"     &&<PrinterSettings/>}
