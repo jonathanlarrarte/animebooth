@@ -951,8 +951,8 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
 
   // Collage config for current session
   const sessionCollage=collages.find(c=>c.photo_count===session?.layout)||{cols:2,rows:2,gap:4,border:8};
-  const PrintPreview=({mini=false})=>{
-    const scale=mini?0.38:1;const baseW=mini?200:260;
+  const PrintPreview=({mini=false,large=false})=>{
+    const scale=mini?0.38:1;const baseW=mini?200:large?460:260;
     const isDataUrl=p=>typeof p==="string"&&p.startsWith("data:");
     return(
       <div className="print-paper" style={{position:"relative",overflow:"hidden",display:"inline-block"}}>
@@ -1076,20 +1076,22 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
           </div>
         )}
         {step==="preview"&&(
-          <div style={{width:"100%",maxWidth:640,textAlign:"center"}}>
-            <div className="step-title">VISTA PREVIA</div><div className="step-sub">🖨️ Revisa tu foto antes de imprimir</div>
-            <div style={{display:"flex",gap:28,justifyContent:"center",alignItems:"flex-start",marginBottom:20}}>
-              <div><div style={{fontSize:11,color:"var(--muted)",letterSpacing:2,marginBottom:8}}>IMPRESIÓN FINAL</div><PrintPreview/></div>
-              <div style={{textAlign:"left",maxWidth:200}}>
-                {[["📸","Fotos",`${session.layout} fotos`],["🎨","Marco",selFrame?.name],["📐","Collage",collages.find(c=>c.photo_count===session.layout)?.name||`${sessionCollage.cols}×${sessionCollage.rows}`]].map(([ic,l,v])=>(
-                  <div key={l} style={{marginBottom:8}}><div style={{fontSize:11,color:"var(--muted)"}}>{ic} {l}</div><div style={{fontWeight:700,fontSize:14}}>{v}</div></div>
-                ))}
-                <div style={{marginTop:14,padding:"10px",background:"rgba(68,170,68,.08)",border:"1px solid rgba(68,170,68,.2)",borderRadius:6,fontSize:12,color:"#44aa44"}}>✓ Liene 1100 lista<br/>⏱ ~15-20 seg</div>
-              </div>
+          <div style={{width:"100%",maxWidth:900,textAlign:"center"}}>
+            <div className="step-title">¿LISTA PARA IMPRIMIR?</div>
+            <div className="step-sub">Así quedará tu foto · Revísala bien antes de confirmar</div>
+            <div style={{display:"flex",justifyContent:"center",margin:"14px 0 16px"}}>
+              <PrintPreview large/>
             </div>
-            <div className="kiosk-nav" style={{justifyContent:"center",gap:14}}>
-              <button className="btn btn-ghost" onClick={()=>{setPhotos([]);setShootPhase('confirm');setStep("shoot");}}>↺ Repetir</button>
-              <button className="shoot-btn" style={{padding:"14px 40px",fontSize:20}} onClick={doPrint}>🖨️ IMPRIMIR</button>
+            <div style={{display:"inline-flex",gap:16,alignItems:"center",flexWrap:"wrap",justifyContent:"center",padding:"10px 22px",background:"rgba(14,16,32,.85)",border:"1px solid var(--border)",borderRadius:50,marginBottom:22,fontSize:14,fontWeight:600}}>
+              <span>📸 {session.layout} foto{session.layout>1?"s":""}</span>
+              <span style={{color:"var(--border)"}}>|</span>
+              <span>🎨 {selFrame?.name||"Sin marco"}</span>
+              <span style={{color:"var(--border)"}}>|</span>
+              <span style={{color:"#44aa44"}}>✓ Liene 1100 lista · ~15 seg</span>
+            </div>
+            <div style={{display:"flex",gap:14,justifyContent:"center"}}>
+              <button className="btn btn-ghost" style={{fontSize:14,padding:"11px 28px"}} onClick={()=>{setPhotos([]);setShootPhase('confirm');setStep("shoot");}}>↺ Repetir fotos</button>
+              <button className="shoot-btn" style={{padding:"15px 48px",fontSize:22}} onClick={doPrint}>🖨️ IMPRIMIR</button>
             </div>
           </div>
         )}
