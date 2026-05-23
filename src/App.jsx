@@ -191,9 +191,9 @@ const css = `
   .cam-wrap{width:min(600px,92vw);aspect-ratio:4/3;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
   .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:absolute;inset:0;justify-content:center;z-index:2}
   .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
-  .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;mix-blend-mode:screen;pointer-events:none}
   .cam-frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:4}
-  .cam-corners{position:absolute;inset:0;pointer-events:none;z-index:2}
+  .cam-corners{position:absolute;inset:0;pointer-events:none;z-index:5}
   .crn{position:absolute;width:22px;height:22px;border-color:var(--accent);border-style:solid;opacity:.8}
   .crn-tl{top:10px;left:10px;border-width:3px 0 0 3px}.crn-tr{top:10px;right:10px;border-width:3px 3px 0 0}
   .crn-bl{bottom:10px;left:10px;border-width:0 0 3px 3px}.crn-br{bottom:10px;right:10px;border-width:0 3px 3px 0}
@@ -863,11 +863,15 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
     const W=v.videoWidth||1280,H=v.videoHeight||960;
     c.width=W;c.height=H;
     const ctx=c.getContext('2d');
-    // 1. Background image stretched to fill full 4:3 frame
-    if(selBg?.image_url){try{const bg=await loadImg(selBg.image_url);ctx.drawImage(bg,0,0,W,H);}catch{}}
-    // 2. Video mirrored, full frame (4:3)
+    // 1. Video (persona) como base
     ctx.save();ctx.translate(W,0);ctx.scale(-1,1);ctx.drawImage(v,0,0,W,H);ctx.restore();
-    // 3. Frame PNG on top (fill entire area, PNG transparency preserved)
+    // 2. Fondo encima del video con screen blend (atmosférico, no oscurece la cara)
+    if(selBg?.image_url){try{
+      const bg=await loadImg(selBg.image_url);
+      ctx.globalCompositeOperation='screen';ctx.drawImage(bg,0,0,W,H);
+      ctx.globalCompositeOperation='source-over';
+    }catch{}}
+    // 3. Marco encima de todo (PNG con transparencia preservada)
     if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,W,H);}catch{}}
     try{return c.toDataURL('image/jpeg',0.88);}catch{return null;}
   };
@@ -971,11 +975,11 @@ function KioskMode({ sessions, setSessions, backgrounds, frames, collages, onExi
             <div className="step-title">SESIÓN DE FOTOS</div>
             <div className="step-sub">📷 Foto {photos.length+1} de {session.layout} · {selBg?.emoji} {selBg?.name}</div>
             <div className="cam-wrap">
-              {selBg?.image_url&&<img src={selBg.image_url} className="cam-bg-img" alt=""/>}
               <video ref={videoRef} autoPlay playsInline muted className="cam-video"/>
+              {selBg?.image_url&&<img src={selBg.image_url} className="cam-bg-img" alt=""/>}
               {!cameraReady&&!cameraError&&<div className="cam-placeholder"><div style={{fontSize:48}}>📷</div><div style={{fontSize:13}}>Iniciando cámara...</div></div>}
               {cameraError&&<div className="cam-placeholder"><div style={{fontSize:40}}>⚠️</div><div style={{fontSize:12,color:"var(--accent2)",maxWidth:280}}>{cameraError}</div></div>}
-              {cameraReady&&!countdown&&photos.length<session.layout&&<div className="scanline"/>}
+              {cameraReady&&!countdown&&photos.length<session.layout&&<div className="scanline" style={{zIndex:3}}/>}
               {countdown!==null&&countdown>0&&<div key={countdown} className={`cdown-num c${countdown}`}>{countdown}</div>}
               {flash&&<div className="flash-overlay"/>}
               {selFrame?.image_url&&<img src={selFrame.image_url} className="cam-frame-img" alt=""/>}
