@@ -45,6 +45,40 @@ const deleteImage = async (bucket, url) => {
   } catch {}
 };
 
+// Remove white/gray background from a frame PNG via canvas pixel processing.
+// Pixels with high luminosity AND low saturation (white/gray) are made transparent.
+// Colored pixels (frame artwork) are preserved.
+const removeFrameBg = async (url) => {
+  if (!url) return null;
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(0, 0, c.width, c.height);
+    const px = d.data;
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i+3] === 0) continue;
+      const r = px[i], g = px[i+1], b = px[i+2];
+      const max = Math.max(r,g,b), min = Math.min(r,g,b);
+      const lum = r*0.299 + g*0.587 + b*0.114;
+      const sat = max === 0 ? 0 : (max - min) / max;
+      if (lum > 200 && sat < 0.15) {
+        // Fade out: fully transparent above lum 240, linear fade from 200-240
+        const t = Math.min(1, (lum - 200) / 40);
+        px[i+3] = Math.round(px[i+3] * (1 - t));
+      }
+    }
+    ctx.putImageData(d, 0, 0);
+    return c.toDataURL('image/png');
+  } catch {
+    return null;
+  }
+};
+
 // ── STYLES ───────────────────────────────────────────────────────────────────
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap');
@@ -815,6 +849,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   const [photos,setPhotos]=useState([]),[countdown,setCountdown]=useState(null),[flash,setFlash]=useState(false),[shootLock,setShootLock]=useState(false);
   const [cameraReady,setCameraReady]=useState(false),[cameraError,setCameraError]=useState('');
   const [shootPhase,setShootPhase]=useState('confirm');
+  const [processedFrameUrl,setProcessedFrameUrl]=useState(null);
   const iRefs=[useRef(),useRef(),useRef(),useRef()], timerRef=useRef(null);
   const videoRef=useRef(null), canvasRef=useRef(null), streamRef=useRef(null);
   const downloadUrl=session?`${DOWNLOAD_BASE}/${session.code}`:"";
@@ -891,6 +926,12 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     try{return c.toDataURL('image/jpeg',0.92);}catch{return null;}
   };
   useEffect(()=>{if(step==='shoot'&&shootPhase==='camera')startCamera();else stopCamera();},[step,shootPhase]);
+  useEffect(()=>{
+    if(!selFrame?.image_url){setProcessedFrameUrl(null);return;}
+    let live=true;
+    removeFrameBg(selFrame.image_url).then(url=>{if(live)setProcessedFrameUrl(url);});
+    return()=>{live=false;};
+  },[selFrame?.image_url]);
   const startShoot=()=>{
     if(shootLock)return;setShootLock(true);let n=3;setCountdown(n);beep(440,0.08,0.4);
     timerRef.current=setInterval(()=>{n--;if(n>0){setCountdown(n);beep(440,0.08,0.4);}
@@ -920,7 +961,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             <div key={i} className="print-photo" style={{aspectRatio:"1/1",position:"relative",overflow:"hidden",background:"#111"}}>
               {isDataUrl(p)&&<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>}
               {!isDataUrl(p)&&<span style={{position:"relative",zIndex:1,fontSize:mini?12:28}}>{p}</span>}
-              {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",pointerEvents:"none",mixBlendMode:"multiply"}} alt=""/>}
+              {selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",pointerEvents:"none",mixBlendMode:"multiply"}} alt=""/>}
             </div>
           ))}
         </div>
@@ -1018,7 +1059,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             {(()=>{const lastPhoto=photos[photos.length-1];const hasPhoto=lastPhoto?.startsWith("data:");return(
               <div style={{width:"min(400px,88vw)",height:"min(400px,88vw)",margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)",position:"relative",background:"#111"}}>
                 {hasPhoto&&<img src={lastPhoto} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>}
-                {selFrame?.image_url&&<img src={selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",mixBlendMode:"multiply"}} alt=""/>}
+                {selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",mixBlendMode:"multiply"}} alt=""/>}
                 {!hasPhoto&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"var(--muted)"}}><div style={{fontSize:40}}>📷</div><div style={{fontSize:12}}>Sin captura — intenta de nuevo</div></div>}
               </div>
             );})()}
