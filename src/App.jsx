@@ -814,6 +814,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   const [session,setSession]=useState(null),[selFrame,setSelFrame]=useState(null);
   const [photos,setPhotos]=useState([]),[countdown,setCountdown]=useState(null),[flash,setFlash]=useState(false),[shootLock,setShootLock]=useState(false);
   const [cameraReady,setCameraReady]=useState(false),[cameraError,setCameraError]=useState('');
+  const [shootPhase,setShootPhase]=useState('confirm');
   const iRefs=[useRef(),useRef(),useRef(),useRef()], timerRef=useRef(null);
   const videoRef=useRef(null), canvasRef=useRef(null), streamRef=useRef(null);
   const downloadUrl=session?`${DOWNLOAD_BASE}/${session.code}`:"";
@@ -863,12 +864,12 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     if(selFrame?.image_url){try{const fr=await loadImg(selFrame.image_url);ctx.drawImage(fr,0,0,size,size);}catch{}}
     try{return c.toDataURL('image/jpeg',0.88);}catch{return null;}
   };
-  useEffect(()=>{if(step==='shoot')startCamera();else stopCamera();},[step]);
+  useEffect(()=>{if(step==='shoot'&&shootPhase==='camera')startCamera();else stopCamera();},[step,shootPhase]);
   const startShoot=()=>{
     if(shootLock)return;setShootLock(true);let n=3;setCountdown(n);beep(440,0.08,0.4);
     timerRef.current=setInterval(()=>{n--;if(n>0){setCountdown(n);beep(440,0.08,0.4);}
     else{clearInterval(timerRef.current);setCountdown(0);shootBeep();setFlash(true);setTimeout(()=>setFlash(false),300);
-      setTimeout(async()=>{const photo=await captureFrame()||"📸";setCountdown(null);setPhotos(p=>{const next=[...p,photo];if(next.length>=session.layout)setTimeout(()=>setStep("preview"),400);return next;});setShootLock(false);},350);}},1000);
+      setTimeout(async()=>{const photo=await captureFrame()||"📸";setCountdown(null);setPhotos(p=>{const next=[...p,photo];setTimeout(()=>{stopCamera();setShootPhase('result');},200);return next;});setShootLock(false);},350);}},1000);
   };
   useEffect(()=>()=>{if(timerRef.current)clearInterval(timerRef.current);stopCamera();},[]);
 
@@ -877,7 +878,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     const{data}=await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),frame_id:selFrame?.id||null}).eq("id",session.id).select().single();
     if(data)setSessions(s=>s.map(x=>x.id===session.id?data:x));setStep("success");
   };
-  const restart=()=>{setStep("code");setDigits(["","","",""]);setCodeErr("");setSession(null);setSelFrame(null);setPhotos([]);setCountdown(null);setShootLock(false);};
+  const restart=()=>{setStep("code");setDigits(["","","",""]);setCodeErr("");setSession(null);setSelFrame(null);setPhotos([]);setCountdown(null);setShootLock(false);setShootPhase('confirm');};
 
   const STEPS=["code","frame","shoot","preview","success"],STEP_LABELS=["Código","Marco","Fotos","Preview","Listo"],si=STEPS.indexOf(step);
 
@@ -938,35 +939,73 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
                 </div>
               ))}
             </div>
-            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={restart}>← Salir</button><button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selFrame} onClick={()=>setStep("shoot")}>¡Comenzar! 📸</button></div>
+            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={restart}>← Salir</button><button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selFrame} onClick={()=>{setShootPhase('confirm');setPhotos([]);setStep("shoot");}}>¡Comenzar! 📸</button></div>
           </div>
         )}
-        {step==="shoot"&&(
+        {step==="shoot"&&shootPhase==="confirm"&&(
+          <div style={{textAlign:"center",maxWidth:500,width:"100%"}}>
+            <div className="step-title">TU MARCO ELEGIDO</div>
+            <div className="step-sub">¿Listo para tu foto épica?</div>
+            <div style={{width:"min(320px,82vw)",height:"min(320px,82vw)",margin:"16px auto 10px",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 32px rgba(232,160,32,.25)",background:"#0a0a15",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {selFrame?.image_url
+                ?<img src={selFrame.image_url} style={{width:"100%",height:"100%",objectFit:"contain"}} alt=""/>
+                :<span style={{fontSize:64}}>{selFrame?.emoji}</span>}
+            </div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:2,color:"var(--accent)",marginBottom:24}}>{selFrame?.emoji} {selFrame?.name}</div>
+            <div className="kiosk-nav" style={{justifyContent:"center"}}>
+              <button className="btn btn-ghost" onClick={()=>setStep("frame")}>← Cambiar marco</button>
+              <button className="enter-btn" style={{width:"auto",padding:"14px 44px"}} onClick={()=>setShootPhase("camera")}>📸 ¡Tomar mi foto!</button>
+            </div>
+          </div>
+        )}
+        {step==="shoot"&&shootPhase==="camera"&&(
           <div style={{width:"100%",maxWidth:620,textAlign:"center"}}>
             <div className="step-title">SESIÓN DE FOTOS</div>
-            <div className="step-sub">📷 Foto {photos.length+1} de {session.layout} · {selFrame?.emoji} {selFrame?.name}</div>
+            <div className="step-sub">📷 Foto {photos.length+1} de {session.layout} — ¡Sonríe!</div>
             <div className="cam-wrap">
               <video ref={videoRef} autoPlay playsInline muted className="cam-video" style={{visibility:cameraReady?'visible':'hidden'}}/>
               {!cameraReady&&!cameraError&&<div className="cam-placeholder"><div style={{fontSize:48}}>📷</div><div style={{fontSize:13}}>Iniciando cámara...</div></div>}
               {cameraError&&<div className="cam-placeholder"><div style={{fontSize:40}}>⚠️</div><div style={{fontSize:12,color:"var(--accent2)",maxWidth:280}}>{cameraError}</div></div>}
-              {cameraReady&&!countdown&&photos.length<session.layout&&<div className="scanline" style={{zIndex:3}}/>}
+              {cameraReady&&!countdown&&<div className="scanline" style={{zIndex:3}}/>}
               {countdown!==null&&countdown>0&&<div key={countdown} className={`cdown-num c${countdown}`}>{countdown}</div>}
               {flash&&<div className="flash-overlay"/>}
-              {selFrame?.image_url&&<img src={selFrame.image_url} className="cam-frame-img" alt=""/>}
               <div className="cam-corners"><div className="crn crn-tl"/><div className="crn crn-tr"/><div className="crn crn-bl"/><div className="crn crn-br"/></div>
               <canvas ref={canvasRef} style={{display:"none"}}/>
             </div>
             <div className="thumb-strip">{Array.from({length:session.layout}).map((_,i)=>(
               <div key={i} className={`thumb ${i<photos.length?"done":""}`} style={{overflow:"hidden"}}>
                 {i<photos.length
-                  ? typeof photos[i]==="string"&&photos[i].startsWith("data:")
-                    ? <><img src={photos[i]} style={{width:"100%",height:"100%",objectFit:"cover"}}/><div className="chk">✓</div></>
-                    : <><span style={{fontSize:24}}>{photos[i]}</span><div className="chk">✓</div></>
-                  : <span style={{fontSize:20,color:"var(--muted)"}}>{i+1}</span>}
+                  ?typeof photos[i]==="string"&&photos[i].startsWith("data:")
+                    ?<><img src={photos[i]} style={{width:"100%",height:"100%",objectFit:"cover"}}/><div className="chk">✓</div></>
+                    :<><span style={{fontSize:24}}>{photos[i]}</span><div className="chk">✓</div></>
+                  :<span style={{fontSize:20,color:"var(--muted)"}}>{i+1}</span>}
               </div>
             ))}</div>
-            <div style={{display:"flex",justifyContent:"center",marginTop:4}}>
-              {photos.length<session.layout&&<button className="shoot-btn" disabled={shootLock||!cameraReady} onClick={startShoot}>{shootLock?"⏳ Espera...":(cameraReady?"📸 TOMAR FOTO":"⏳ Cámara...")}</button>}
+            <div style={{display:"flex",justifyContent:"center",marginTop:8}}>
+              <button className="shoot-btn" disabled={shootLock||!cameraReady} onClick={startShoot}>
+                {shootLock?"⏳ Espera...":(cameraReady?"📸 TOMAR FOTO":"⏳ Cámara...")}
+              </button>
+            </div>
+          </div>
+        )}
+        {step==="shoot"&&shootPhase==="result"&&(
+          <div style={{textAlign:"center",maxWidth:520,width:"100%"}}>
+            <div className="step-title">¡ASÍ QUEDÓ!</div>
+            <div className="step-sub">Foto {photos.length} de {session.layout} · {selFrame?.emoji} {selFrame?.name}</div>
+            {photos[photos.length-1]?.startsWith("data:")&&(
+              <div style={{width:"min(380px,88vw)",height:"min(380px,88vw)",margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)"}}>
+                <img src={photos[photos.length-1]} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="foto"/>
+              </div>
+            )}
+            <div style={{marginTop:18,display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
+              <button className="btn btn-ghost" onClick={()=>{setPhotos(p=>p.slice(0,-1));setShootPhase("camera");}}>↺ Repetir esta foto</button>
+              {photos.length<session.layout
+                ?<button className="enter-btn" style={{width:"auto",padding:"13px 36px"}} onClick={()=>setShootPhase("camera")}>
+                    Siguiente foto ({photos.length+1}/{session.layout}) →
+                  </button>
+                :<button className="enter-btn" style={{width:"auto",padding:"13px 36px"}} onClick={()=>setStep("preview")}>
+                    🖨️ Ver collage final →
+                  </button>}
             </div>
           </div>
         )}
@@ -983,7 +1022,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
               </div>
             </div>
             <div className="kiosk-nav" style={{justifyContent:"center",gap:14}}>
-              <button className="btn btn-ghost" onClick={()=>{setPhotos([]);setStep("shoot");}}>↺ Repetir</button>
+              <button className="btn btn-ghost" onClick={()=>{setPhotos([]);setShootPhase('confirm');setStep("shoot");}}>↺ Repetir</button>
               <button className="shoot-btn" style={{padding:"14px 40px",fontSize:20}} onClick={doPrint}>🖨️ IMPRIMIR</button>
             </div>
           </div>
