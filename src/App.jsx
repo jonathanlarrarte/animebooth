@@ -81,6 +81,18 @@ const removeFrameBg = async (url) => {
 
 const canvasToBlob = (c, type, q) => new Promise(res => c.toBlob(res, type, q));
 
+// Liene printer paper: 4in wide × 6in tall (portrait), rendered at 300 DPI so prints are full-bleed.
+const PAPER_W = 1200, PAPER_H = 1800;
+
+// Draw `img` into the x,y,w,h rect cropping to fill it completely (like CSS object-fit:cover) — no stretching, no white bars.
+const drawCover = (ctx, img, x, y, w, h) => {
+  const ir = img.width / img.height, cr = w / h;
+  let sx, sy, sw, sh;
+  if (ir > cr) { sh = img.height; sw = sh * cr; sy = 0; sx = (img.width - sw) / 2; }
+  else { sw = img.width; sh = sw / cr; sx = 0; sy = (img.height - sh) / 2; }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+};
+
 // ── STYLES ───────────────────────────────────────────────────────────────────
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap');
@@ -195,7 +207,7 @@ const css = `
   .kiosk-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%;max-width:900px;padding:18px 24px 28px;margin:auto}
   .kiosk-logo{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:8px;background:linear-gradient(135deg,#e8a020,#f0d060);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.1;white-space:nowrap}
   .kiosk-tagline{font-size:12px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:20px}
-  .code-card{background:rgba(14,16,32,.95);border:1px solid var(--border);border-radius:16px;padding:36px;text-align:center;width:420px;backdrop-filter:blur(20px);box-shadow:0 24px 64px rgba(0,0,0,.6)}
+  .code-card{background:rgba(14,16,32,.95);border:1px solid var(--border);border-radius:16px;padding:36px;text-align:center;width:min(420px,90vw);backdrop-filter:blur(20px);box-shadow:0 24px 64px rgba(0,0,0,.6)}
   .code-label{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:18px}
   .code-inputs{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
   .code-digit{width:66px;height:74px;background:var(--surface2);border:2px solid var(--border);border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--accent);text-align:center;outline:none;transition:all .15s}
@@ -950,13 +962,16 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   };
   useEffect(()=>()=>{if(timerRef.current)clearInterval(timerRef.current);stopCamera();},[]);
 
-  // Build full collage on a canvas (photos + frame overlay) for upload & print
+  // Build full collage on a canvas (photos + frame overlay) for upload & print.
+  // A single photo prints landscape (6in wide × 4in tall) on the paper; anything else (2, 4...) prints
+  // portrait (4in × 6in) so cols/rows fill it edge-to-edge — 2 fotos (1 col × 2 rows) → top half / bottom half.
   const buildCollageCanvas=async()=>{
     const cols=sessionCollage.cols,rows=sessionCollage.rows;
     const gap=sessionCollage.gap,border=sessionCollage.border;
-    const CELL=600;
-    const W=border*2+cols*CELL+(cols-1)*gap;
-    const H=border*2+rows*CELL+(rows-1)*gap+28;
+    const landscape=cols===1&&rows===1;
+    const W=landscape?PAPER_H:PAPER_W,H=landscape?PAPER_W:PAPER_H;
+    const cellW=(W-border*2-(cols-1)*gap)/cols;
+    const cellH=(H-border*2-(rows-1)*gap)/rows;
     const c=document.createElement('canvas');c.width=W;c.height=H;
     const ctx=c.getContext('2d');
     ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
@@ -973,16 +988,16 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     }
     for(let i=0;i<photos.length;i++){
       const col=i%cols,row=Math.floor(i/cols);
-      const x=border+col*(CELL+gap),y=border+row*(CELL+gap);
+      const x=border+col*(cellW+gap),y=border+row*(cellH+gap);
       if(photos[i]?.startsWith('data:')){
         const img=new Image();
         await new Promise(res=>{img.onload=res;img.src=photos[i];});
-        ctx.drawImage(img,x,y,CELL,CELL);
+        drawCover(ctx,img,x,y,cellW,cellH);
       }
-      if(fImg){try{ctx.drawImage(fImg,x,y,CELL,CELL);}catch{}}
+      if(fImg){try{ctx.drawImage(fImg,x,y,cellW,cellH);}catch{}}
     }
-    ctx.fillStyle='#aaa';ctx.font='18px sans-serif';ctx.textAlign='center';
-    ctx.fillText(`AnimeBooth · ${selFrame?.name||''}`,W/2,H-7);
+    ctx.fillStyle='rgba(255,255,255,.85)';ctx.font='bold 22px sans-serif';ctx.textAlign='center';
+    ctx.fillText(`AnimeBooth · ${selFrame?.name||''}`,W/2,H-16);
     return c;
   };
 
@@ -994,15 +1009,16 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     try{
       canvas=await buildCollageCanvas();
       dataUrl=canvas.toDataURL('image/jpeg',0.92);
+      const pageW=canvas.width>canvas.height?'6in':'4in',pageH=canvas.width>canvas.height?'4in':'6in';
       const ifr=document.createElement('iframe');
-      ifr.style.cssText='position:fixed;top:-9999px;left:-9999px;width:4in;height:6in;border:none;';
+      ifr.style.cssText=`position:fixed;top:-9999px;left:-9999px;width:${pageW};height:${pageH};border:none;`;
       document.body.appendChild(ifr);
       const doc=ifr.contentDocument;
       doc.open();
       doc.write(`<!DOCTYPE html><html><head><style>
-        @page{size:4in 6in;margin:0}
-        body{margin:0;padding:0;display:flex;align-items:center;justify-content:center;width:4in;height:6in;background:#fff}
-        img{max-width:4in;max-height:6in;object-fit:contain}
+        @page{size:${pageW} ${pageH};margin:0}
+        body{margin:0;padding:0;display:flex;align-items:center;justify-content:center;width:${pageW};height:${pageH};background:#fff}
+        img{max-width:${pageW};max-height:${pageH};object-fit:contain}
       </style></head><body><img src="${dataUrl}"/></body></html>`);
       doc.close();
       setTimeout(()=>{
@@ -1047,21 +1063,28 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
 
   // Collage config for current session
   const sessionCollage=collages.find(c=>c.photo_count===session?.layout)||{cols:2,rows:2,gap:4,border:8};
+  // Mirrors buildCollageCanvas's math exactly so what's shown on screen matches what actually prints
+  // on the 4×6in paper — no more square-looking preview that gets letterboxed with white bars at print time.
   const PrintPreview=({mini=false,large=false})=>{
-    const scale=mini?0.38:1;const baseW=mini?200:large?460:260;
+    const baseW=mini?200:large?"min(460px,86vw)":260;
     const isDataUrl=p=>typeof p==="string"&&p.startsWith("data:");
+    const cols=sessionCollage.cols,rows=sessionCollage.rows,gap=sessionCollage.gap,border=sessionCollage.border;
+    const landscape=cols===1&&rows===1;
+    const pw=landscape?PAPER_H:PAPER_W,ph=landscape?PAPER_W:PAPER_H;
+    const cellW=(pw-border*2-(cols-1)*gap)/cols;
+    const cellH=(ph-border*2-(rows-1)*gap)/rows;
     return(
-      <div className="print-paper" style={{position:"relative",overflow:"hidden",display:"inline-block"}}>
-        <div style={{position:"relative",display:"grid",gridTemplateColumns:`repeat(${sessionCollage.cols},1fr)`,gap:sessionCollage.gap*scale,padding:sessionCollage.border*scale,background:"transparent",width:baseW*scale}}>
+      <div className="print-paper" style={{position:"relative",overflow:"hidden",display:"inline-block",width:baseW,aspectRatio:`${pw}/${ph}`}}>
+        <div style={{position:"relative",height:"100%",display:"grid",gridTemplateColumns:`repeat(${cols},1fr)`,gap:`${gap/ph*100}% ${gap/pw*100}%`,padding:`${border/pw*100}%`,background:"transparent"}}>
           {photos.map((p,i)=>(
-            <div key={i} className="print-photo" style={{aspectRatio:"1/1",position:"relative",overflow:"hidden",background:"#111"}}>
+            <div key={i} className="print-photo" style={{aspectRatio:`${cellW}/${cellH}`,position:"relative",overflow:"hidden",background:"#111"}}>
               {isDataUrl(p)&&<img src={p} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>}
               {!isDataUrl(p)&&<span style={{position:"relative",zIndex:1,fontSize:mini?12:28}}>{p}</span>}
               {selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",pointerEvents:"none",...(!processedFrameUrl&&{mixBlendMode:"multiply"})}} alt=""/>}
             </div>
           ))}
         </div>
-        <div style={{textAlign:"center",fontSize:mini?7:10,color:"#999",padding:"4px 0",fontFamily:"sans-serif",position:"relative",textShadow:"0 1px 2px rgba(0,0,0,.8)"}}>AnimeBooth · {selFrame?.name}</div>
+        <div style={{position:"absolute",left:0,right:0,bottom:0,textAlign:"center",fontSize:mini?7:10,color:"rgba(255,255,255,.85)",padding:"4px 0",fontFamily:"sans-serif",fontWeight:700,textShadow:"0 1px 2px rgba(0,0,0,.8)"}}>AnimeBooth · {selFrame?.name}</div>
       </div>
     );
   };
