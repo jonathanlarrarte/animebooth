@@ -867,7 +867,13 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     const c=digits.join("");const found=sessions.find(x=>x.code===c&&!x.used);
     if(!found){setCodeErr("Código inválido o ya usado. Intenta de nuevo.");beep(200,0.3,0.4,"sawtooth");return;}
     beep(660,0.1);setTimeout(()=>beep(880,0.1),120);setTimeout(()=>beep(1100,0.15),240);
-    setSession(found);setCodeErr("");setStep("frame");
+    setSession(found);setCodeErr("");setStep(activeCollages.length>0?"collage":"frame");
+  };
+  const chooseCollage=(cl)=>{
+    beep(660,0.05);
+    setSession(s=>({...s,layout:cl.photo_count}));
+    supabase.from("sessions").update({layout:cl.photo_count}).eq("id",session.id);
+    setStep("frame");
   };
 
   const startCamera=async()=>{
@@ -983,12 +989,11 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
   const doPrint=async()=>{
     if(printing)return;
     printBeep();setPrinting(true);
-    // 1. Build collage canvas
-    let dataUrl=null;
+    // 1. Build collage canvas + print via hidden iframe (best-effort — must not block marking the session as used)
+    let dataUrl=null,canvas=null;
     try{
-      const canvas=await buildCollageCanvas();
+      canvas=await buildCollageCanvas();
       dataUrl=canvas.toDataURL('image/jpeg',0.92);
-      // 2. Print via hidden iframe (Liene 1100 must be default printer or selected in dialog)
       const ifr=document.createElement('iframe');
       ifr.style.cssText='position:fixed;top:-9999px;left:-9999px;width:4in;height:6in;border:none;';
       document.body.appendChild(ifr);
@@ -1004,25 +1009,32 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
         ifr.contentWindow.print();
         setTimeout(()=>{try{document.body.removeChild(ifr);}catch{}},3000);
       },400);
-      // 3. Upload collage to Supabase Storage
-      try{
+    }catch(e){
+      console.error('Error generando/imprimiendo el collage:',e);
+    }
+    // 2. Upload collage to Supabase Storage — errors here must not stop the session from being closed out
+    let finalUrl=null;
+    try{
+      if(canvas){
         const blob=await canvasToBlob(canvas,'image/jpeg',0.92);
         const path=`collage-${session.code}.jpg`;
         const{error}=await supabase.storage.from('photos').upload(path,blob,{contentType:'image/jpeg',upsert:true});
         if(!error){
           const{data:pub}=supabase.storage.from('photos').getPublicUrl(path);
-          setCollageUrl(pub.publicUrl);
-          await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),frame_id:selFrame?.id||null,collage_url:pub.publicUrl}).eq("id",session.id);
-          setSessions(s=>s.map(x=>x.id===session.id?{...x,used:true,collage_url:pub.publicUrl}:x));
+          finalUrl=pub.publicUrl;
+        }else{
+          console.error('Error subiendo collage a Storage (revisa que el bucket "photos" exista y sea público):',error);
         }
-      }catch{
-        // Upload failed — still mark session used
-        await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),frame_id:selFrame?.id||null}).eq("id",session.id);
-        setSessions(s=>s.map(x=>x.id===session.id?{...x,used:true}:x));
       }
     }catch(e){
-      console.error('doPrint error',e);
+      console.error('Error de red subiendo el collage:',e);
     }
+    // Fallback to the local data URL so the QR/descarga never queda cargando indefinidamente
+    if(!finalUrl)finalUrl=dataUrl;
+    setCollageUrl(finalUrl);
+    // 3. Always mark the session/code as used, regardless of print or upload outcome
+    await supabase.from("sessions").update({used:true,uses_left:0,used_at:new Date().toISOString(),frame_id:selFrame?.id||null,collage_url:finalUrl}).eq("id",session.id);
+    setSessions(s=>s.map(x=>x.id===session.id?{...x,used:true,collage_url:finalUrl}:x));
     setPrinting(false);setStep("success");
   };
   const restart=()=>{
@@ -1031,7 +1043,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     setProcessedFrameUrl(null);setCollageUrl(null);setPrinting(false);
   };
 
-  const STEPS=["code","frame","shoot","preview","success"],STEP_LABELS=["Código","Marco","Fotos","Preview","Listo"],si=STEPS.indexOf(step);
+  const STEPS=["code","collage","frame","shoot","preview","success"],STEP_LABELS=["Código","Collage","Marco","Fotos","Preview","Listo"],si=STEPS.indexOf(step);
 
   // Collage config for current session
   const sessionCollage=collages.find(c=>c.photo_count===session?.layout)||{cols:2,rows:2,gap:4,border:8};
@@ -1072,6 +1084,24 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             <div style={{marginTop:14,fontSize:12,color:"var(--muted)"}}>¿No tienes código? Consulta en recepción 🎪</div>
           </div>
         )}
+        {step==="collage"&&(
+          <div style={{width:"100%",maxWidth:720}}>
+            <div className="step-title">ELIGE TU COLLAGE</div>
+            <div className="step-sub">📐 ¿Cuántas fotos quieres en tu impresión?</div>
+            <div className="opt-grid-3" style={{marginBottom:20}}>
+              {activeCollages.map(cl=>(
+                <div key={cl.id} className={`opt-card ${session?.layout===cl.photo_count?"sel":""}`} onClick={()=>chooseCollage(cl)}>
+                  <div className="opt-card-content">
+                    <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><CollagePreviewBox cols={cl.cols} rows={cl.rows} gap={cl.gap} border={cl.border} size={70}/></div>
+                    <div className="opt-label">{cl.name}</div>
+                    <div className="opt-meta">{cl.cols}×{cl.rows} · {cl.photo_count} foto{cl.photo_count>1?"s":""}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={restart}>← Salir</button></div>
+          </div>
+        )}
         {step==="frame"&&(
           <div style={{width:"100%",maxWidth:720}}>
             <div className="step-title">ELIGE TU MARCO</div>
@@ -1087,7 +1117,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
                 </div>
               ))}
             </div>
-            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={restart}>← Salir</button><button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selFrame} onClick={()=>{setShootPhase('confirm');setPhotos([]);setStep("shoot");}}>¡Comenzar! 📸</button></div>
+            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={()=>activeCollages.length>0?setStep("collage"):restart()}>{activeCollages.length>0?"← Cambiar collage":"← Salir"}</button><button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selFrame} onClick={()=>{setShootPhase('confirm');setPhotos([]);setStep("shoot");}}>¡Comenzar! 📸</button></div>
           </div>
         )}
         {step==="shoot"&&shootPhase==="confirm"&&(
