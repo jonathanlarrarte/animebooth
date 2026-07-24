@@ -116,6 +116,7 @@ const css = `
   .nav-icon{font-size:16px;width:20px;text-align:center}
   .sidebar-footer{padding:16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
   .kiosk-btn{width:100%;padding:10px;background:linear-gradient(135deg,var(--accent),#c47010);border:none;border-radius:6px;color:#000;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;cursor:pointer;transition:all .2s}
+  .kiosk-btn:disabled{opacity:.5;cursor:not-allowed}
   .kiosk-btn:hover{opacity:.85;transform:translateY(-1px)}
   .logout-btn{width:100%;padding:8px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:'Rajdhani',sans-serif;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s}
   .logout-btn:hover{border-color:var(--accent2);color:var(--accent2)}
@@ -1347,7 +1348,7 @@ export default function App() {
           )}
         </div>
         <div className="sidebar-footer">
-          <button className="kiosk-btn" onClick={()=>setKiosk(true)}>▶ MODO KIOSCO</button>
+          <button className="kiosk-btn" disabled={dataLoading} title={dataLoading?"Espera a que carguen los códigos y marcos...":undefined} onClick={()=>setKiosk(true)}>{dataLoading?"⏳ Cargando datos...":"▶ MODO KIOSCO"}</button>
           <button className="logout-btn" onClick={handleLogout}>↩ Cerrar Sesión</button>
         </div>
       </div>
