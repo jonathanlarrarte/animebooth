@@ -1140,7 +1140,10 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
                 </div>
               ))}
             </div>
-            <div className="kiosk-nav"><button className="btn btn-ghost" onClick={()=>activeCollages.length>0?setStep("collage"):restart()}>{activeCollages.length>0?"← Cambiar collage":"← Salir"}</button><button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selFrame} onClick={()=>{setShootPhase('confirm');setPhotos([]);setStep("shoot");}}>¡Comenzar! 📸</button></div>
+            <div className="kiosk-nav">
+              <button className="btn btn-ghost" onClick={()=>photos.length>0?setStep("shoot"):activeCollages.length>0?setStep("collage"):restart()}>{photos.length>0?"← Volver a la cámara":activeCollages.length>0?"← Cambiar collage":"← Salir"}</button>
+              <button className="enter-btn" style={{width:"auto",padding:"12px 36px"}} disabled={!selFrame} onClick={()=>{if(photos.length>0){setStep("shoot");}else{setShootPhase('confirm');setPhotos([]);setStep("shoot");}}}>{photos.length>0?"Continuar →":"¡Comenzar! 📸"}</button>
+            </div>
           </div>
         )}
         {step==="shoot"&&shootPhase==="confirm"&&(
@@ -1167,12 +1170,14 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
               <video ref={videoRef} autoPlay playsInline muted className="cam-video" style={{visibility:cameraReady?'visible':'hidden'}}/>
               {!cameraReady&&!cameraError&&<div className="cam-placeholder"><div style={{fontSize:48}}>📷</div><div style={{fontSize:13}}>Iniciando cámara...</div></div>}
               {cameraError&&<div className="cam-placeholder"><div style={{fontSize:40}}>⚠️</div><div style={{fontSize:12,color:"var(--accent2)",maxWidth:280}}>{cameraError}</div></div>}
+              {cameraReady&&selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} className="cam-frame-img" alt=""/>}
               {cameraReady&&!countdown&&<div className="scanline" style={{zIndex:3}}/>}
               {countdown!==null&&countdown>0&&<div key={countdown} className={`cdown-num c${countdown}`}>{countdown}</div>}
               {flash&&<div className="flash-overlay"/>}
               <div className="cam-corners"><div className="crn crn-tl"/><div className="crn crn-tr"/><div className="crn crn-bl"/><div className="crn crn-br"/></div>
               <canvas ref={canvasRef} style={{display:"none"}}/>
             </div>
+            {cameraReady&&<div style={{marginBottom:10}}><button className="btn btn-ghost btn-sm" onClick={()=>setStep("frame")}>🎨 Cambiar marco</button></div>}
             <div className="thumb-strip">{Array.from({length:session.layout}).map((_,i)=>(
               <div key={i} className={`thumb ${i<photos.length?"done":""}`} style={{overflow:"hidden"}}>
                 {i<photos.length
