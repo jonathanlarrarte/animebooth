@@ -767,14 +767,14 @@ function Collages({ collages, setCollages }) {
 // ── CODES / SESSIONS ─────────────────────────────────────────────────────────
 function Codes({ sessions, setSessions, events, collages }) {
   const firstCollage=collages.find(c=>c.active)||{id:null,photo_count:4,cols:2,rows:2};
-  const empty={customerName:"",eventId:events[0]?.id||"",collageId:firstCollage.id||"",qty:1};
+  const empty={customerName:"",eventId:events[0]?.id||"",qty:1};
   const [modal,setModal]=useState(false),[form,setForm]=useState(empty),[search,setSearch]=useState("");
   const [confirm,setConfirm]=useState(null),[saving,setSaving]=useState(false),[err,setErr]=useState("");
 
   const save=async()=>{
     setSaving(true);setErr("");
-    const col=collages.find(c=>c.id===form.collageId)||firstCollage;
-    const rows=Array.from({length:form.qty},()=>({code:genCode(),event_id:form.eventId||null,layout:col.photo_count,uses_left:1,used:false,customer_name:form.customerName||null}));
+    // El collage lo elige el cliente en el kiosco — este valor es solo un layout por defecto hasta entonces.
+    const rows=Array.from({length:form.qty},()=>({code:genCode(),event_id:form.eventId||null,layout:firstCollage.photo_count,uses_left:1,used:false,customer_name:form.customerName||null}));
     const{data,error}=await supabase.from("sessions").insert(rows).select();
     if(error){setErr(error.message);setSaving(false);return;}
     setSessions(s=>[...s,...data]);setSaving(false);setModal(false);setForm(empty);
@@ -807,13 +807,8 @@ function Codes({ sessions, setSessions, events, collages }) {
         {err&&<div className="err-box">⚠ {err}</div>}
         <div className="field"><label>Cliente</label><input value={form.customerName} onChange={e=>setForm({...form,customerName:e.target.value})} placeholder="Nombre del cliente" autoFocus/></div>
         <div className="field"><label>Evento</label><select value={form.eventId} onChange={e=>setForm({...form,eventId:e.target.value})}><option value="">Sin evento</option>{events.map(ev=><option key={ev.id} value={ev.id}>{ev.name}</option>)}</select></div>
-        <div className="field"><label>Tipo de Collage</label>
-          <select value={form.collageId} onChange={e=>setForm({...form,collageId:e.target.value})}>
-            {collages.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.name} — {c.cols}×{c.rows} ({c.photo_count} fotos)</option>)}
-          </select>
-        </div>
         <div className="field"><label>Cantidad <span style={{color:"var(--accent)"}}>máx 50</span></label><input type="number" min={1} max={50} value={form.qty} onChange={e=>setForm({...form,qty:Math.min(50,Math.max(1,Number(e.target.value)))})} /></div>
-        <div className="tip-box">💡 {form.qty} código(s) · {collages.find(c=>c.id===form.collageId)?.name||"Collage"}</div>
+        <div className="tip-box">💡 {form.qty} código(s) · el cliente elige el collage al tomarse la foto</div>
         <div className="modal-actions"><button className="btn btn-ghost" onClick={()=>setModal(false)}>Cancelar</button><button className="btn btn-primary" onClick={save} disabled={saving}>{saving?"Generando...":"Generar"}</button></div>
       </div></div>}
       {confirm&&<ConfirmModal title="Eliminar Código" message={`¿Eliminar código ${confirm.code}?`} sub={confirm.customer_name?`Cliente: ${confirm.customer_name}`:undefined} onConfirm={doDelete} onCancel={()=>setConfirm(null)} loading={saving}/>}
