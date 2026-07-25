@@ -237,7 +237,7 @@ const css = `
   .lp-wrap{display:flex;justify-content:center;margin-bottom:8px}
   .lp-grid{display:grid;gap:3px}
   .lp-cell{background:var(--accent);border-radius:2px;opacity:.7}
-  .cam-wrap{width:min(540px,92vw);aspect-ratio:1/1;background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
+  .cam-wrap{width:min(540px,92vw);background:#111;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin:0 auto 12px}
   .cam-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);text-align:center;position:absolute;inset:0;justify-content:center;z-index:2}
   .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
   .cam-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
@@ -904,6 +904,14 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     if(videoRef.current)videoRef.current.srcObject=null;
   };
   const loadImg=src=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>res(img);img.onerror=rej;img.src=src;});
+  // Crops to shootAspect (the exact width/height ratio of the final print cell for the chosen collage)
+  // instead of a fixed square, so what gets captured is never cropped further/differently at print time —
+  // no more heads getting cut off because the live framing didn't match the final output shape.
+  const cropToShootAspect=(vW,vH)=>{
+    let cw,ch;
+    if(vW/vH>shootAspect){ch=vH;cw=ch*shootAspect;}else{cw=vW;ch=cw/shootAspect;}
+    return{cw,ch,sx:(vW-cw)/2,sy:(vH-ch)/2};
+  };
   const captureFrame=async()=>{
     const c=canvasRef.current;
     if(!c)return null;
@@ -914,14 +922,12 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
         if(track&&track.readyState==='live'){
           const ic=new ImageCapture(track);
           const bitmap=await ic.grabFrame();
-          const vW=bitmap.width,vH=bitmap.height;
-          const size=Math.min(vW,vH);
-          const sx=(vW-size)/2,sy=(vH-size)/2;
-          c.width=size;c.height=size;
+          const{cw,ch,sx,sy}=cropToShootAspect(bitmap.width,bitmap.height);
+          c.width=cw;c.height=ch;
           const ctx=c.getContext('2d');
-          ctx.fillStyle='#111';ctx.fillRect(0,0,size,size);
-          ctx.save();ctx.translate(size,0);ctx.scale(-1,1);
-          ctx.drawImage(bitmap,sx,sy,size,size,0,0,size,size);
+          ctx.fillStyle='#111';ctx.fillRect(0,0,cw,ch);
+          ctx.save();ctx.translate(cw,0);ctx.scale(-1,1);
+          ctx.drawImage(bitmap,sx,sy,cw,ch,0,0,cw,ch);
           ctx.restore();bitmap.close();
           return c.toDataURL('image/jpeg',0.92);
         }
@@ -930,15 +936,13 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
     // Fallback: draw from video element
     const v=videoRef.current;
     if(!v)return null;
-    const vW=v.videoWidth||1280,vH=v.videoHeight||960;
-    const size=Math.min(vW,vH);
-    const sx=(vW-size)/2,sy=(vH-size)/2;
-    c.width=size;c.height=size;
+    const{cw,ch,sx,sy}=cropToShootAspect(v.videoWidth||1280,v.videoHeight||960);
+    c.width=cw;c.height=ch;
     const ctx=c.getContext('2d');
-    ctx.fillStyle='#111';ctx.fillRect(0,0,size,size);
+    ctx.fillStyle='#111';ctx.fillRect(0,0,cw,ch);
     try{
-      ctx.save();ctx.translate(size,0);ctx.scale(-1,1);
-      ctx.drawImage(v,sx,sy,size,size,0,0,size,size);
+      ctx.save();ctx.translate(cw,0);ctx.scale(-1,1);
+      ctx.drawImage(v,sx,sy,cw,ch,0,0,cw,ch);
       ctx.restore();
     }catch{try{ctx.restore();}catch{}}
     try{return c.toDataURL('image/jpeg',0.92);}catch{return null;}
@@ -1059,6 +1063,12 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
 
   // Collage config for current session
   const sessionCollage=collages.find(c=>c.photo_count===session?.layout)||{cols:2,rows:2,gap:4,border:8};
+  // Aspect ratio (width/height) of the exact cell this photo will occupy in the final print —
+  // used to frame the live camera and the just-captured preview so nothing gets cropped by surprise later.
+  const shootLandscape=sessionCollage.cols===1&&sessionCollage.rows===1;
+  const shootPW=shootLandscape?PAPER_H:PAPER_W,shootPH=shootLandscape?PAPER_W:PAPER_H;
+  const shootAspect=((shootPW-sessionCollage.border*2-(sessionCollage.cols-1)*sessionCollage.gap)/sessionCollage.cols)
+    /((shootPH-sessionCollage.border*2-(sessionCollage.rows-1)*sessionCollage.gap)/sessionCollage.rows);
   // Mirrors buildCollageCanvas's math exactly so what's shown on screen matches what actually prints
   // on the 4×6in paper — no more square-looking preview that gets letterboxed with white bars at print time.
   const PrintPreview=({mini=false,large=false})=>{
@@ -1162,7 +1172,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
           <div style={{width:"100%",maxWidth:620,textAlign:"center"}}>
             <div className="step-title">SESIÓN DE FOTOS</div>
             <div className="step-sub">📷 Foto {photos.length+1} de {session.layout} — ¡Sonríe!</div>
-            <div className="cam-wrap">
+            <div className="cam-wrap" style={{aspectRatio:shootAspect}}>
               <video ref={videoRef} autoPlay playsInline muted className="cam-video" style={{visibility:cameraReady?'visible':'hidden'}}/>
               {!cameraReady&&!cameraError&&<div className="cam-placeholder"><div style={{fontSize:48}}>📷</div><div style={{fontSize:13}}>Iniciando cámara...</div></div>}
               {cameraError&&<div className="cam-placeholder"><div style={{fontSize:40}}>⚠️</div><div style={{fontSize:12,color:"var(--accent2)",maxWidth:280}}>{cameraError}</div></div>}
@@ -1195,7 +1205,7 @@ function KioskMode({ sessions, setSessions, frames, collages, onExit }) {
             <div className="step-title">¡ASÍ QUEDÓ!</div>
             <div className="step-sub">Foto {photos.length} de {session.layout} · {selFrame?.emoji} {selFrame?.name}</div>
             {(()=>{const lastPhoto=photos[photos.length-1];const hasPhoto=lastPhoto?.startsWith("data:");return(
-              <div style={{width:"min(400px,88vw)",height:"min(400px,88vw)",margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)",position:"relative",background:"#111"}}>
+              <div style={{width:"min(400px,88vw)",aspectRatio:shootAspect,margin:"14px auto",borderRadius:14,overflow:"hidden",border:"3px solid var(--accent)",boxShadow:"0 0 36px rgba(232,160,32,.35)",position:"relative",background:"#111"}}>
                 {hasPhoto&&<img src={lastPhoto} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} alt=""/>}
                 {selFrame?.image_url&&<img src={processedFrameUrl||selFrame.image_url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"fill",...(!processedFrameUrl&&{mixBlendMode:"multiply"})}} alt=""/>}
                 {!hasPhoto&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"var(--muted)"}}><div style={{fontSize:40}}>📷</div><div style={{fontSize:12}}>Sin captura — intenta de nuevo</div></div>}
